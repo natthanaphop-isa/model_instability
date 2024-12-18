@@ -7,8 +7,8 @@ import matplotlib.pyplot as plt
 import statsmodels.api as sm
 
 # Load dataset
-df = pd.read_excel('/Users/natthanaphop_isa/Library/CloudStorage/GoogleDrive-natthanaphop.isa@gmail.com/My Drive/Academic Desk/2024Instability/model_instability/dataset/cnx_external_dataset.xlsx')
-list_of_col = ['age', 'sex', 'stat', 'HT', 'lipid', 'BMI', 'waistcir', 'calfcir', 'exhaustion']
+df = pd.read_excel('/Users/natthanaphop_isa/Library/CloudStorage/GoogleDrive-natthanaphop.isa@gmail.com/My Drive/Academic Desk/2024Instability/model_instability/dataset/lp_internal_dataset.xlsx')
+list_of_col = ['age', 'sex', 'HT', 'lipid', 'BMI', 'waistcir', 'calfcir', 'exhaustion']
 target_column = 'frail'
 
 # Prepare features and target
@@ -21,7 +21,7 @@ original_model.fit(X, y)
 original_probs = original_model.predict_proba(X)[:, 1]
 
 # Bootstrap settings
-n_bootstrap = 10
+n_bootstrap = 50
 bootstrap_models = []
 bootstrap_probs = []
 
@@ -36,11 +36,11 @@ for i in range(n_bootstrap):
     logistic_model = LogisticRegression()
     param_grid = { 
         'penalty': ['l1', 'l2'],  
-        'C': np.arange(1, 3, 0.5), 
+        'C': np.arange(1, 2, 0.5), 
         'class_weight': ['balanced', None], 
         'solver': ['liblinear', 'saga']  
     }
-    grid_search = GridSearchCV(estimator=logistic_model, param_grid=param_grid, cv=5, n_jobs=-1, verbose=2)
+    grid_search = GridSearchCV(estimator=logistic_model, param_grid=param_grid, cv=10, n_jobs=-1, verbose=2)
     grid_search.fit(X_boot, y_boot)
     
     # Get the best model and train it
@@ -73,13 +73,13 @@ for i, probs in enumerate(bootstrap_probs):
     plt.scatter(original_probs, probs, label=f"Bootstrap Model {i+1}", alpha=0.6, s=2)
 
 # Add ideal line for reference
-plt.plot([0, 1], [0, 1], 'k-', lw=2, label="Ideal Line")
+plt.plot([0, 1], [0, 1], 'k-', lw=1, label="Ideal Line")
 
 # Add 2.5th and 97.5th percentile lines
 # plt.scatter(original_probs, percentile_2_5, label="2.5th Percentile Line")
 # plt.scatter(original_probs, percentile_97_5, label="97.5th Percentile Line")
-plt.plot(lowess_2_5[:, 0], lowess_2_5[:, 1], 'k--', lw=2, label="LOWESS 2.5th Percentile Line")
-plt.plot(lowess_97_5[:, 0], lowess_97_5[:, 1], 'k--', lw=2, label="LOWESS 97.5th Percentile Line")
+plt.plot(lowess_2_5[:, 0], lowess_2_5[:, 1], 'k--', lw=1, label="LOWESS 2.5th Percentile Line")
+plt.plot(lowess_97_5[:, 0], lowess_97_5[:, 1], 'k--', lw=1, label="LOWESS 97.5th Percentile Line")
 
 # Plot settings
 plt.xlabel("Original Model Predicted Probabilities")
