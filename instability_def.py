@@ -6,6 +6,7 @@ from sklearn.model_selection import GridSearchCV
 from sklearn.calibration import calibration_curve
 import matplotlib.pyplot as plt
 import statsmodels.api as sm
+import os
 
 # Load dataset
 def load_data(file_path, features, target_column):
@@ -80,6 +81,7 @@ def plot_probability_comparison(original_probs, bootstrap_probs, lowess_2_5, low
     plt.title(f"Comparison of Predicted Probabilities: Original Model vs. {n_bootstrap} Bootstrapped Models")
     plt.grid(False)
     plt.legend()
+    plt.savefig(figure + '/in_probability_comparison.png')
     plt.show()
 
 # Plot calibration curve for original and bootstrapped models
@@ -106,6 +108,7 @@ def plot_calibration_with_bootstrap(original_model, bootstrap_models, X, y, n_bi
     plt.title("Model Calibration with Bootstrap Instability")
     plt.legend(loc='upper left', frameon=True, fontsize='small')
     plt.grid(True)
+    plt.savefig(figure + '/in_calibration_comparison.png')
     plt.show()
 
 # Calculate LOWESS smoothed percentiles
@@ -142,6 +145,7 @@ def plot_mape_instability(original_probs, bootstrap_probs, mape_threshold=100):
     plt.title("MAPE Instability Plot")
     plt.grid(True)
     plt.legend()
+    plt.savefig(figure + '/in_mape.png')
     plt.show()
 
     print(f"Mean MAPE: {mean_mape:.2f}%")
@@ -160,8 +164,11 @@ n_bootstrap = 20
 
 # Load dataset
 X, y, df = load_data(file_path, list_of_col, target_column)
+# Ensure 'figures' folder exists
+figure = '''/Users/natthanaphop_isa/Library/CloudStorage/GoogleDrive-natthanaphop.isa@gmail.com/My Drive/Academic Desk/2024Instability/model_instability/figures'''
+os.makedirs(figure, exist_ok=True)
 
-# Perform EDA
+# # Perform EDA
 # exploratory_data_analysis(df)
 
 # Train original model
@@ -170,6 +177,9 @@ original_model = train_model(X, y, param_grid)
 # Bootstrap training
 bootstrap_models, bootstrap_probs = bootstrap_training(X, y, df, list_of_col, target_column, param_grid, n_bootstrap)
 
+# Perform EDA
+exploratory_data_analysis(df)
+
 # Calculate LOWESS smoothed percentiles
 lowess_2_5, lowess_97_5 = calculate_lowess_percentiles(bootstrap_probs, original_model.predict_proba(X)[:, 1])
 
@@ -177,3 +187,4 @@ lowess_2_5, lowess_97_5 = calculate_lowess_percentiles(bootstrap_probs, original
 plot_mape_instability(original_model.predict_proba(X)[:, 1], bootstrap_probs)
 plot_probability_comparison(original_model.predict_proba(X)[:, 1], bootstrap_probs, lowess_2_5, lowess_97_5, n_bootstrap)
 plot_calibration_with_bootstrap(original_model, bootstrap_models, X, y)
+
