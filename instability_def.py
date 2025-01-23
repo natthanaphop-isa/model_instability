@@ -10,7 +10,7 @@ import os
 
 # Load dataset
 def load_data(file_path, features, target_column):
-    df = pd.read_excel(file_path).iloc[:, 1:]
+    df = pd.read_excel(file_path) #.iloc[:, 1:]
     X = df[features]
     y = df[target_column]
     return X, y, df
@@ -24,8 +24,8 @@ def exploratory_data_analysis(df):
     print("\nMissing Values:")
     print(df.isnull().sum())
 
-    print("\nCorrelation Matrix:")
-    print(df.corr())
+    # print("\nCorrelation Matrix:")
+    # print(df.corr())
 
     # Plot histograms for all numerical columns
     df.hist(bins=15, figsize=(15, 10))
@@ -43,7 +43,7 @@ def train_model(X, y, param_grid, cv=10):
     return best_model
 
 # Perform bootstrapping
-def bootstrap_training(X, y, df, features, target_column, param_grid, n_bootstrap):
+def bootstrap_training(X, df, features, target_column, param_grid, n_bootstrap):
     bootstrap_models = []
     bootstrap_probs = []
 
@@ -54,7 +54,7 @@ def bootstrap_training(X, y, df, features, target_column, param_grid, n_bootstra
         y_boot = boot_df[target_column]
 
         # Train model on bootstrapped dataset
-        best_model = train_model(X_boot, y_boot, param_grid, cv=5)
+        best_model = train_model(X_boot, y_boot, param_grid, cv=10)
         bootstrap_models.append(best_model)
         bootstrap_probs.append(best_model.predict_proba(X)[:, 1])  # Predict on the original dataset
 
@@ -81,11 +81,11 @@ def plot_probability_comparison(original_probs, bootstrap_probs, lowess_2_5, low
     plt.title(f"Comparison of Predicted Probabilities: Original Model vs. {n_bootstrap} Bootstrapped Models")
     plt.grid(False)
     plt.legend()
-    plt.savefig(figure + '/in_probability_comparison.png')
+    plt.savefig(results + '/probability_comparison.png')
     plt.show()
 
 # Plot calibration curve for original and bootstrapped models
-def plot_calibration_with_bootstrap(original_model, bootstrap_models, X, y, n_bins=5):
+def plot_calibration_with_bootstrap(original_model, bootstrap_models, X, y, n_bootstrap, n_bins=5):
     plt.figure(figsize=(10, 6))
 
     # Original model calibration curve
@@ -105,10 +105,10 @@ def plot_calibration_with_bootstrap(original_model, bootstrap_models, X, y, n_bi
     # Plot settings
     plt.xlabel("Predicted Probability")
     plt.ylabel("Observed Predicted Probability")
-    plt.title("Model Calibration with Bootstrap Instability")
+    plt.title(f"Model Calibration Instability with {n_bootstrap} Bootstrapped Models")
     plt.legend(loc='upper left', frameon=True, fontsize='small')
     plt.grid(True)
-    plt.savefig(figure + '/in_calibration_comparison.png')
+    plt.savefig(results + '/calibration_comparison.png')
     plt.show()
 
 # Calculate LOWESS smoothed percentiles
@@ -120,71 +120,68 @@ def calculate_lowess_percentiles(bootstrap_probs, original_probs):
     return lowess_2_5, lowess_97_5
 
 # Plot MAPE instability
-def plot_mape_instability(original_probs, bootstrap_probs, mape_threshold=100):
+def plot_mape_instability(origin_predict, bootstrap_probs, mape_threshold=100):
     # Transpose bootstrap_probs to match the shape for broadcasting
     bootstrap_probs = bootstrap_probs.T
     # Calculate MAPE for each sample
-    mape_values = np.mean(np.abs(bootstrap_probs - original_probs[:, np.newaxis]) / original_probs[:, np.newaxis], axis=1) * 100
+    mape_values = (np.abs(bootstrap_probs - origin_predict[:, np.newaxis]))
     mean_mape = np.mean(mape_values)
-
-    # Apply MAPE threshold filter if specified
-    if mape_threshold is not None:
-        filtered_indices = mape_values <= mape_threshold
-        filtered_probs = original_probs[filtered_indices]
-        filtered_mape_values = mape_values[filtered_indices]
-    else:
-        filtered_probs = original_probs
-        filtered_mape_values = mape_values
+    
+    y_values = mape_values.flatten()
+    # Repeat Array2 values for each column in Array1
+    x_values = np.repeat(origin_predict, mape_values.shape[1])
 
     # Plot MAPE instability
     plt.figure(figsize=(10, 6))
-    plt.scatter(filtered_probs, filtered_mape_values, alpha=0.6, s=10)
+    plt.scatter(x_values, y_values, alpha=0.6, s=10)
     plt.axhline(mean_mape, color='red', linestyle='--', label=f"Mean MAPE: {mean_mape:.2f}%")
-    plt.xlabel("Original Model Predicted Probability")
+    plt.xlabel("Original Model: Predicted Probability")
     plt.ylabel("MAPE (%)")
     plt.title("MAPE Instability Plot")
     plt.grid(True)
     plt.legend()
-    plt.savefig(figure + '/in_mape.png')
+    plt.savefig(results + '/mape.png')
     plt.show()
-
     print(f"Mean MAPE: {mean_mape:.2f}%")
 
-# Main workflow
-file_path = '/Users/natthanaphop_isa/Library/CloudStorage/GoogleDrive-natthanaphop.isa@gmail.com/My Drive/Academic Desk/2024Instability/model_instability/dataset/lp_internal_dataset.xlsx'
-list_of_col = ['age', 'sex', 'HT', 'lipid', 'BMI', 'waistcir', 'calfcir', 'exhaustion']
-target_column = 'frail'
-param_grid = { 
-    'penalty': ['l1', 'l2'],  
-    'C': np.arange(1, 2, 0.5), 
-    'class_weight': ['balanced', None], 
-    'solver': ['liblinear', 'saga']  
-}
-n_bootstrap = 20
-
 # Load dataset
-X, y, df = load_data(file_path, list_of_col, target_column)
-# Ensure 'figures' folder exists
-figure = '''/Users/natthanaphop_isa/Library/CloudStorage/GoogleDrive-natthanaphop.isa@gmail.com/My Drive/Academic Desk/2024Instability/model_instability/figures'''
-os.makedirs(figure, exist_ok=True)
+## Define paths and configuration
+df_path = '/Users/natthanaphop_isa/Library/CloudStorage/GoogleDrive-natthanaphop.isa@gmail.com/My Drive/Academic Desk/2024Instability/model_instability/dataset/gusto_dataset(Sheet1).csv'
+results = '/Users/natthanaphop_isa/Library/CloudStorage/GoogleDrive-natthanaphop.isa@gmail.com/My Drive/Academic Desk/2024Instability/model_instability/results/instability'
+os.makedirs(results, exist_ok=True)
+param_grid = {
+        'penalty': ['l2'],
+        'C': [0.001],
+        'class_weight': ['balanced'],
+        'max_iter': [500]
+    }
+n_bootstrap = 10
 
-# # Perform EDA
-# exploratory_data_analysis(df)
+# X, y, df = load_data(df_path, features, key, mode = 'sim')
+df_full = pd.read_csv(df_path)
+df_full['sex'] = df_full['sex'].apply(lambda x: 1 if x == 'male' else 0)
+df_full['pmi'] = df_full['pmi'].apply(lambda x: 1 if x == 'yes' else 0)
+## Define features and target
+features = ['age', 'sex', 'hyp', 'htn', 'hrt', 'ste', 'pmi', 'sysbp']
+key = 'day30'
+
+## Sampling
+df_sam = df_full.groupby(key).apply(lambda x: x.sample(frac=0.025, random_state=42)).reset_index(drop=True)
+df = df_full
+X = df[features]
+y = df[key]
 
 # Train original model
 original_model = train_model(X, y, param_grid)
+origin_predict= original_model.predict_proba(X)[:, 1]
 
 # Bootstrap training
-bootstrap_models, bootstrap_probs = bootstrap_training(X, y, df, list_of_col, target_column, param_grid, n_bootstrap)
-
-# Perform EDA
-exploratory_data_analysis(df)
+bootstrap_models, bootstrap_probs = bootstrap_training(X, df, features, key, param_grid, n_bootstrap)
 
 # Calculate LOWESS smoothed percentiles
-lowess_2_5, lowess_97_5 = calculate_lowess_percentiles(bootstrap_probs, original_model.predict_proba(X)[:, 1])
+lowess_2_5, lowess_97_5 = calculate_lowess_percentiles(bootstrap_probs, origin_predict)
 
 # Plot results
-plot_mape_instability(original_model.predict_proba(X)[:, 1], bootstrap_probs)
-plot_probability_comparison(original_model.predict_proba(X)[:, 1], bootstrap_probs, lowess_2_5, lowess_97_5, n_bootstrap)
-plot_calibration_with_bootstrap(original_model, bootstrap_models, X, y)
-
+plot_mape_instability(origin_predict, bootstrap_probs)
+plot_probability_comparison(origin_predict, bootstrap_probs, lowess_2_5, lowess_97_5, n_bootstrap)
+plot_calibration_with_bootstrap(original_model, bootstrap_models, X, y, n_bootstrap)
