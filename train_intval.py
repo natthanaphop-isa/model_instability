@@ -257,7 +257,7 @@ def bootstrap_metrics(model, X, y, model_name, n_iterations=1000):
 # Load data
 ## Define paths and configuration
 df_path = '/Users/natthanaphop_isa/Library/CloudStorage/GoogleDrive-natthanaphop.isa@gmail.com/My Drive/Academic Desk/2024Instability/model_instability/dataset/GUSTO/gusto_dataset(Sheet1).csv'
-results = '/Users/natthanaphop_isa/Library/CloudStorage/GoogleDrive-natthanaphop.isa@gmail.com/My Drive/Academic Desk/2024Instability/model_instability/results'
+results = '/Users/natthanaphop_isa/Library/CloudStorage/GoogleDrive-natthanaphop.isa@gmail.com/My Drive/Academic Desk/2024Instability/model_instability/results/dev_val/full'
 os.makedirs(results, exist_ok=True)
 
 ## Define features and target
@@ -268,10 +268,6 @@ key = 'day30'
 df_full = pd.read_csv(df_path)
 df_full['sex'] = df_full['sex'].apply(lambda x: 1 if x == 'male' else 0)
 df_full['pmi'] = df_full['pmi'].apply(lambda x: 1 if x == 'yes' else 0)
-
-## Sampling
-df_sam = df_full.groupby(key).apply(lambda x: x.sample(frac=0.025, random_state=42)).reset_index(drop=True)
-df_sam
 
 X = df_full[features]
 y = df_full[key]
@@ -284,6 +280,24 @@ X, y = sampling(X, y)
 
 # Train the model
 model_name = "FullLogit"
+best_model, best_params = logitML(X, y)
+print("Best Parameters:", best_params)
+with open(os.path.join(results,f"best_params_{model_name}.json"), "w") as file:
+        json.dump(best_params, file, indent=4)  # `indent=4` makes the file human-readable
+
+# Plot ROC curve
+# roc_curve(best_model, "Logistic Regression", X, y)
+bootstrap_metrics(best_model, X, y, model_name)
+
+# Sampling
+results = '/Users/natthanaphop_isa/Library/CloudStorage/GoogleDrive-natthanaphop.isa@gmail.com/My Drive/Academic Desk/2024Instability/model_instability/results/dev_val/reduced'
+os.makedirs(results, exist_ok=True)
+df_sam = df_full.groupby(key).apply(lambda x: x.sample(frac=0.025, random_state=42)).reset_index(drop=True)
+X = df_sam[features]
+y = df_sam[key]
+
+# Train the model
+model_name = "SamLogit"
 best_model, best_params = logitML(X, y)
 print("Best Parameters:", best_params)
 with open(os.path.join(results,f"best_params_{model_name}.json"), "w") as file:

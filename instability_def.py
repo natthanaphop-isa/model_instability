@@ -7,6 +7,8 @@ from sklearn.calibration import calibration_curve
 import matplotlib.pyplot as plt
 import statsmodels.api as sm
 import os
+import json
+import pickle
 
 # Load dataset
 def load_data(file_path, features, target_column):
@@ -58,6 +60,10 @@ def bootstrap_training(X, df, features, target_column, param_grid, n_bootstrap):
         bootstrap_models.append(best_model)
         bootstrap_probs.append(best_model.predict_proba(X)[:, 1])  # Predict on the original dataset
 
+    np.save(results + "/bootstrap_probs.npy",  np.array(bootstrap_probs))
+    # Save the list to a JSON file
+    # with open(results + "/bootstrap_models.pkl", "w") as file:
+    #     pickle.dump(bootstrap_models, file)
     return bootstrap_models, np.array(bootstrap_probs)
 
 # Plot comparison of predicted probabilities
@@ -66,7 +72,10 @@ def plot_probability_comparison(original_probs, bootstrap_probs, lowess_2_5, low
 
     # Scatter plots for each bootstrapped model
     for i, probs in enumerate(bootstrap_probs):
-        plt.scatter(original_probs, probs, alpha=0.6, s=2)
+        plt.scatter(original_probs, probs, 
+                    color='grey',  
+                    alpha=1,     # Set transparency
+                    s=0.1)
 
     # Add ideal line for reference
     plt.plot([0, 1], [0, 1], 'k-', lw=1, label="Ideal Line")
@@ -119,55 +128,81 @@ def calculate_lowess_percentiles(bootstrap_probs, original_probs):
     lowess_97_5 = sm.nonparametric.lowess(percentile_97_5, original_probs, frac=0.3)
     return lowess_2_5, lowess_97_5
 
-# Plot MAPE instability
-def plot_mape_instability(origin_predict, bootstrap_probs, mape_threshold=100):
+# Plot MAPE instability 
+def plot_mape_instability(origin_predict, bootstrap_probs):
     # Transpose bootstrap_probs to match the shape for broadcasting
     bootstrap_probs = bootstrap_probs.T
-    # Calculate MAPE for each sample
-    mape_values = (np.abs(bootstrap_probs - origin_predict[:, np.newaxis]))
-    mean_mape = np.mean(mape_values)
-    
-    y_values = mape_values.flatten()
-    # Repeat Array2 values for each column in Array1
-    x_values = np.repeat(origin_predict, mape_values.shape[1])
+    absolute_errors = np.abs(bootstrap_probs - origin_predict[:, np.newaxis])
+    # Calculate Mean Absolute Prediction Error (MAPE)
+    mape = np.mean(absolute_errors, axis = 1) * 100
 
+    y_values = mape.flatten()
+    # Repeat origin_predict values for each column in bootstrap_probs
+    # x_values = np.repeat(origin_predict, absolute_errors.shape[1])
+    x_values = origin_predict
     # Plot MAPE instability
     plt.figure(figsize=(10, 6))
-    plt.scatter(x_values, y_values, alpha=0.6, s=10)
-    plt.axhline(mean_mape, color='red', linestyle='--', label=f"Mean MAPE: {mean_mape:.2f}%")
+    plt.scatter(origin_predict, y_values, alpha=0.5, s=0.3)
+    # plt.axhline(mean_mape, color='red', linestyle='--', label=f"Mean MAPE: {mean_mape:.2f}%")
     plt.xlabel("Original Model: Predicted Probability")
     plt.ylabel("MAPE (%)")
+    plt.ylim(0, 20)
     plt.title("MAPE Instability Plot")
     plt.grid(True)
     plt.legend()
     plt.savefig(results + '/mape.png')
     plt.show()
-    print(f"Mean MAPE: {mean_mape:.2f}%")
+    # print(f"Mean MAPE: {mean_mape:.2f}%")
 
 # Load dataset
-## Define paths and configuration
-df_path = '/Users/natthanaphop_isa/Library/CloudStorage/GoogleDrive-natthanaphop.isa@gmail.com/My Drive/Academic Desk/2024Instability/model_instability/dataset/gusto_dataset(Sheet1).csv'
-results = '/Users/natthanaphop_isa/Library/CloudStorage/GoogleDrive-natthanaphop.isa@gmail.com/My Drive/Academic Desk/2024Instability/model_instability/results/instability'
-os.makedirs(results, exist_ok=True)
-param_grid = {
+## Define bootstraps and model training configuration
+param_grid = param_grid = {
         'penalty': ['l2'],
-        'C': [0.001],
+        'C': [0.001, 0.01],
+        # 'C': [0.001, 0.01, 0.1, 1, 10, 100, 1000],
         'class_weight': ['balanced'],
+        #'solver': ["newton-cholesky", "sag", "saga", "lbfgs"],
         'max_iter': [500]
     }
-n_bootstrap = 10
+n_bootstrap = 5
 
+# FULL DATASET
+## Results
+df_path = '/Users/natthanaphop_isa/Library/CloudStorage/GoogleDrive-natthanaphop.isa@gmail.com/My Drive/Academic Desk/2024Instability/model_instability/dataset/gusto_dataset(Sheet1).csv'
+results = '/Users/natthanaphop_isa/Library/CloudStorage/GoogleDrive-natthanaphop.isa@gmail.com/My Drive/Academic Desk/2024Instability/model_instability/results/instability/full'
+os.makedirs(results, exist_ok=True)
 # X, y, df = load_data(df_path, features, key, mode = 'sim')
-df_full = pd.read_csv(df_path)
-df_full['sex'] = df_full['sex'].apply(lambda x: 1 if x == 'male' else 0)
-df_full['pmi'] = df_full['pmi'].apply(lambda x: 1 if x == 'yes' else 0)
+df = pd.read_csv(df_path)
+df['sex'] = df['sex'].apply(lambda x: 1 if x == 'male' else 0)
+df['pmi'] = df['pmi'].apply(lambda x: 1 if x == 'yes' else 0)
 ## Define features and target
 features = ['age', 'sex', 'hyp', 'htn', 'hrt', 'ste', 'pmi', 'sysbp']
 key = 'day30'
+X = df[features]
+y = df[key]
 
-## Sampling
-df_sam = df_full.groupby(key).apply(lambda x: x.sample(frac=0.025, random_state=42)).reset_index(drop=True)
-df = df_full
+## Train original model
+original_model = train_model(X, y, param_grid)
+origin_predict= original_model.predict_proba(X)[:, 1]
+
+# ## Bootstrap training
+bootstrap_models, bootstrap_probs = bootstrap_training(X, df, features, key, param_grid, n_bootstrap)
+
+# ## Calculate LOWESS smoothed percentiles
+lowess_2_5, lowess_97_5 = calculate_lowess_percentiles(bootstrap_probs, origin_predict)
+
+# ## Plot results
+plot_mape_instability(origin_predict, bootstrap_probs)
+plot_probability_comparison(origin_predict, bootstrap_probs, lowess_2_5, lowess_97_5, n_bootstrap)
+plot_calibration_with_bootstrap(original_model, bootstrap_models, X, y, n_bootstrap)
+
+# SAMPLED DATASET
+## Results
+results = '/Users/natthanaphop_isa/Library/CloudStorage/GoogleDrive-natthanaphop.isa@gmail.com/My Drive/Academic Desk/2024Instability/model_instability/results/instability/reduced'
+os.makedirs(results, exist_ok=True)
+
+df_sam = df.groupby(key).apply(lambda x: x.sample(frac=0.025, random_state=42)).reset_index(drop=True)
+df = df_sam
 X = df[features]
 y = df[key]
 
@@ -181,7 +216,33 @@ bootstrap_models, bootstrap_probs = bootstrap_training(X, df, features, key, par
 # Calculate LOWESS smoothed percentiles
 lowess_2_5, lowess_97_5 = calculate_lowess_percentiles(bootstrap_probs, origin_predict)
 
+def plot_mape_instability2(origin_predict, bootstrap_probs):
+    # Transpose bootstrap_probs to match the shape for broadcasting
+    bootstrap_probs = bootstrap_probs.T
+    absolute_errors = np.abs(bootstrap_probs - origin_predict[:, np.newaxis])
+    # Calculate Mean Absolute Prediction Error (MAPE)
+    mape = np.mean(absolute_errors, axis = 1) * 100
+
+    y_values = mape.flatten()
+    # Repeat origin_predict values for each column in bootstrap_probs
+    # x_values = np.repeat(origin_predict, absolute_errors.shape[1])
+    x_values = origin_predict
+    
+    # Plot MAPE instability
+    plt.figure(figsize=(10, 6))
+    plt.scatter(x_values, y_values, alpha=1, s=1)
+    # plt.axhline(mean_mape, color='red', linestyle='--', label=f"Mean MAPE: {mean_mape:.2f}%")
+    plt.xlabel("Original Model: Predicted Probability")
+    plt.ylabel("MAPE (%)")
+    plt.ylim(0, 20)
+    plt.title("MAPE Instability Plot")
+    plt.grid(True)
+    plt.legend()
+    plt.savefig(results + '/mape.png')
+    plt.show()
+    # print(f"Mean MAPE: {mean_mape:.2f}%")
+    
 # Plot results
-plot_mape_instability(origin_predict, bootstrap_probs)
+plot_mape_instability2(origin_predict, bootstrap_probs)
 plot_probability_comparison(origin_predict, bootstrap_probs, lowess_2_5, lowess_97_5, n_bootstrap)
 plot_calibration_with_bootstrap(original_model, bootstrap_models, X, y, n_bootstrap)
