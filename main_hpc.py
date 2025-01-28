@@ -7,6 +7,8 @@ from sklearn.calibration import calibration_curve
 import matplotlib.pyplot as plt
 import statsmodels.api as sm
 import os
+import json
+import pickle
 
 # Load dataset
 def load_data(file_path, features, target_column):
@@ -59,6 +61,9 @@ def bootstrap_training(X, df, features, target_column, param_grid, n_bootstrap):
         bootstrap_probs.append(best_model.predict_proba(X)[:, 1])  # Predict on the original dataset
 
     np.save(results + "/bootstrap_probs.npy",  np.array(bootstrap_probs))
+    # Save the list to a JSON file
+    # with open(results + "/bootstrap_models.pkl", "w") as file:
+    #     pickle.dump(bootstrap_models, file)
     return bootstrap_models, np.array(bootstrap_probs)
 
 # Plot comparison of predicted probabilities
@@ -70,7 +75,7 @@ def plot_probability_comparison(original_probs, bootstrap_probs, lowess_2_5, low
         plt.scatter(original_probs, probs, 
                     color='grey',  
                     alpha=1,     # Set transparency
-                    s=0.05)
+                    s=0.1)
 
     # Add ideal line for reference
     plt.plot([0, 1], [0, 1], 'k-', lw=1, label="Ideal Line")
@@ -89,11 +94,12 @@ def plot_probability_comparison(original_probs, bootstrap_probs, lowess_2_5, low
     plt.show()
 
 # Plot calibration curve for original and bootstrapped models
-def plot_calibration_with_bootstrap(origin_predict, bootstrap_models, X, y, n_bootstrap, n_bins=5):
+def plot_calibration_with_bootstrap(original_model, bootstrap_models, X, y, n_bootstrap, n_bins=5):
     plt.figure(figsize=(10, 6))
 
     # Original model calibration curve
-    mean_predicted_prob, observed_fraction = calibration_curve(y, origin_predict, n_bins=n_bins, strategy='uniform')
+    original_probs = original_model.predict_proba(X)[:, 1]
+    mean_predicted_prob, observed_fraction = calibration_curve(y, original_probs, n_bins=n_bins, strategy='uniform')
     plt.plot(mean_predicted_prob, observed_fraction, 'k--', lw=2, label="Original Model (Dashed Line)")
 
     # Bootstrap models calibration curves
@@ -188,7 +194,7 @@ lowess_2_5, lowess_97_5 = calculate_lowess_percentiles(bootstrap_probs, origin_p
 # ## Plot results
 plot_mape_instability(origin_predict, bootstrap_probs)
 plot_probability_comparison(origin_predict, bootstrap_probs, lowess_2_5, lowess_97_5, n_bootstrap)
-plot_calibration_with_bootstrap(origin_predict, bootstrap_models, X, y, n_bootstrap)
+plot_calibration_with_bootstrap(original_model, bootstrap_models, X, y, n_bootstrap)
 
 # SAMPLED DATASET
 ## Results
@@ -239,4 +245,4 @@ def plot_mape_instability2(origin_predict, bootstrap_probs):
 # Plot results
 plot_mape_instability2(origin_predict, bootstrap_probs)
 plot_probability_comparison(origin_predict, bootstrap_probs, lowess_2_5, lowess_97_5, n_bootstrap)
-plot_calibration_with_bootstrap(origin_predict, bootstrap_models, X, y, n_bootstrap)
+plot_calibration_with_bootstrap(original_model, bootstrap_models, X, y, n_bootstrap)
