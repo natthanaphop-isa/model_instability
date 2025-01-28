@@ -7,8 +7,6 @@ from sklearn.calibration import calibration_curve
 import matplotlib.pyplot as plt
 import statsmodels.api as sm
 import os
-import json
-import pickle
 
 # Load dataset
 def load_data(file_path, features, target_column):
@@ -61,9 +59,6 @@ def bootstrap_training(X, df, features, target_column, param_grid, n_bootstrap):
         bootstrap_probs.append(best_model.predict_proba(X)[:, 1])  # Predict on the original dataset
 
     np.save(results + "/bootstrap_probs.npy",  np.array(bootstrap_probs))
-    # Save the list to a JSON file
-    # with open(results + "/bootstrap_models.pkl", "w") as file:
-    #     pickle.dump(bootstrap_models, file)
     return bootstrap_models, np.array(bootstrap_probs)
 
 # Plot comparison of predicted probabilities
@@ -75,7 +70,7 @@ def plot_probability_comparison(original_probs, bootstrap_probs, lowess_2_5, low
         plt.scatter(original_probs, probs, 
                     color='grey',  
                     alpha=1,     # Set transparency
-                    s=0.1)
+                    s=0.05)
 
     # Add ideal line for reference
     plt.plot([0, 1], [0, 1], 'k-', lw=1, label="Ideal Line")
@@ -94,12 +89,11 @@ def plot_probability_comparison(original_probs, bootstrap_probs, lowess_2_5, low
     plt.show()
 
 # Plot calibration curve for original and bootstrapped models
-def plot_calibration_with_bootstrap(original_model, bootstrap_models, X, y, n_bootstrap, n_bins=5):
+def plot_calibration_with_bootstrap(origin_predict, bootstrap_models, X, y, n_bootstrap, n_bins=5):
     plt.figure(figsize=(10, 6))
 
     # Original model calibration curve
-    original_probs = original_model.predict_proba(X)[:, 1]
-    mean_predicted_prob, observed_fraction = calibration_curve(y, original_probs, n_bins=n_bins, strategy='uniform')
+    mean_predicted_prob, observed_fraction = calibration_curve(y, origin_predict, n_bins=n_bins, strategy='uniform')
     plt.plot(mean_predicted_prob, observed_fraction, 'k--', lw=2, label="Original Model (Dashed Line)")
 
     # Bootstrap models calibration curves
@@ -158,18 +152,17 @@ def plot_mape_instability(origin_predict, bootstrap_probs):
 ## Define bootstraps and model training configuration
 param_grid = param_grid = {
         'penalty': ['l2'],
-        'C': [0.001, 0.01],
-        # 'C': [0.001, 0.01, 0.1, 1, 10, 100, 1000],
+        'C': [0.001, 0.01, 0.1, 1, 10, 100, 1000],
         'class_weight': ['balanced'],
-        #'solver': ["newton-cholesky", "sag", "saga", "lbfgs"],
-        'max_iter': [500]
+        'solver': ["newton-cholesky", "sag", "saga", "lbfgs"],
+        'max_iter': [1000]
     }
-n_bootstrap = 5
+n_bootstrap = 500
 
 # FULL DATASET
 ## Results
-df_path = '/Users/natthanaphop_isa/Library/CloudStorage/GoogleDrive-natthanaphop.isa@gmail.com/My Drive/Academic Desk/2024Instability/model_instability/dataset/gusto_dataset(Sheet1).csv'
-results = '/Users/natthanaphop_isa/Library/CloudStorage/GoogleDrive-natthanaphop.isa@gmail.com/My Drive/Academic Desk/2024Instability/model_instability/results/instability/full'
+df_path = '/home/natthanaphop.isa/model_instability/dataset/gusto_dataset(Sheet1).csv'
+results = '/home/natthanaphop.isa/model_instability/results/instability/full'
 os.makedirs(results, exist_ok=True)
 # X, y, df = load_data(df_path, features, key, mode = 'sim')
 df = pd.read_csv(df_path)
@@ -194,11 +187,11 @@ lowess_2_5, lowess_97_5 = calculate_lowess_percentiles(bootstrap_probs, origin_p
 # ## Plot results
 plot_mape_instability(origin_predict, bootstrap_probs)
 plot_probability_comparison(origin_predict, bootstrap_probs, lowess_2_5, lowess_97_5, n_bootstrap)
-plot_calibration_with_bootstrap(original_model, bootstrap_models, X, y, n_bootstrap)
+plot_calibration_with_bootstrap(origin_predict, bootstrap_models, X, y, n_bootstrap)
 
 # SAMPLED DATASET
 ## Results
-results = '/Users/natthanaphop_isa/Library/CloudStorage/GoogleDrive-natthanaphop.isa@gmail.com/My Drive/Academic Desk/2024Instability/model_instability/results/instability/reduced'
+results = '/home/natthanaphop.isa/model_instability/results/instability/reduced'
 os.makedirs(results, exist_ok=True)
 
 df_sam = df.groupby(key).apply(lambda x: x.sample(frac=0.025, random_state=42)).reset_index(drop=True)
@@ -245,4 +238,4 @@ def plot_mape_instability2(origin_predict, bootstrap_probs):
 # Plot results
 plot_mape_instability2(origin_predict, bootstrap_probs)
 plot_probability_comparison(origin_predict, bootstrap_probs, lowess_2_5, lowess_97_5, n_bootstrap)
-plot_calibration_with_bootstrap(original_model, bootstrap_models, X, y, n_bootstrap)
+plot_calibration_with_bootstrap(origin_predict, bootstrap_models, X, y, n_bootstrap)
