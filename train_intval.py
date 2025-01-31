@@ -276,7 +276,7 @@ y = df_full[key]
 explore(X, y, name = 'Full')
 
 # Resample data
-X, y = sampling(X, y)
+X, y = sampling(X, y, mode = 'over')
 
 # Train the model
 model_name = "FullLogit"

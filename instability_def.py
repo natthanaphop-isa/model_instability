@@ -3,10 +3,13 @@ import numpy as np
 from sklearn.linear_model import LogisticRegression
 from sklearn.utils import resample
 from sklearn.model_selection import GridSearchCV
-from sklearn.calibration import calibration_curve
+from sklearn.calibration import calibration_curve, CalibrationDisplay
 import matplotlib.pyplot as plt
 import statsmodels.api as sm
 import os
+from imblearn.over_sampling import RandomOverSampler, SMOTE
+from collections import Counter
+from imblearn.under_sampling import RandomUnderSampler
 
 # Load dataset
 def load_data(file_path, features, target_column):
@@ -14,6 +17,21 @@ def load_data(file_path, features, target_column):
     X = df[features]
     y = df[target_column]
     return X, y, df
+
+def sampling(X, y, mode=None):
+    """Handles data sampling: oversampling or undersampling."""
+    if mode == 'over':
+        sm = SMOTE(random_state=30)
+        X_res, y_res = sm.fit_resample(X, y)
+        print('Resampled dataset shape:', Counter(y_res))
+    elif mode == 'under':
+        rus = RandomUnderSampler(random_state=30)
+        X_res, y_res = rus.fit_resample(X, y)
+        print('Resampled dataset shape:', Counter(y_res))
+    else:
+        X_res, y_res = X, y
+
+    return np.array(X_res), np.array(y_res)
 
 # Perform exploratory data analysis (EDA)
 def exploratory_data_analysis(df):
@@ -88,19 +106,21 @@ def plot_probability_comparison(original_probs, bootstrap_probs, lowess_2_5, low
     plt.savefig(results + '/probability_comparison.png')
     plt.show()
 
+
 # Plot calibration curve for original and bootstrapped models
 def plot_calibration_with_bootstrap(origin_predict, bootstrap_models, X, y, n_bootstrap, n_bins=5):
     plt.figure(figsize=(10, 6))
-
-    # Original model calibration curve
-    mean_predicted_prob, observed_fraction = calibration_curve(y, origin_predict, n_bins=n_bins, strategy='uniform')
-    plt.plot(mean_predicted_prob, observed_fraction, 'k--', lw=2, label="Original Model (Dashed Line)")
-
+    
     # Bootstrap models calibration curves
     for i, model in enumerate(bootstrap_models):
         bootstrap_probs = model.predict_proba(X)[:, 1]
         mean_predicted_prob, observed_fraction = calibration_curve(y, bootstrap_probs, n_bins=n_bins, strategy='uniform')
-        plt.plot(mean_predicted_prob, observed_fraction, color='grey', alpha=0.6, lw=1, label="Bootstrap Models" if i == 0 else "")  # Label only the first curve
+        plt.plot(mean_predicted_prob, observed_fraction, color='grey', alpha=0.6, lw=1, label="Bootstrapped Models" if i == 0 else "")  # Label only the first curve
+        # disp = CalibrationDisplay.from_predictions(y, bootstrap_probs)
+    
+    # Original model calibration curve
+    mean_predicted_prob, observed_fraction = calibration_curve(np.array(y), np.array(origin_predict), n_bins=n_bins, strategy='uniform')
+    plt.plot(mean_predicted_prob, observed_fraction, 'k--', lw=2, label="Original Model (Dashed Line)")
 
     # Ideal calibration line
     plt.plot([0, 1], [0, 1], 'k-', lw=1.5, label="Ideal Calibration Line")
@@ -125,8 +145,8 @@ def calculate_lowess_percentiles(bootstrap_probs, original_probs):
 # Plot MAPE instability 
 def plot_mape_instability(origin_predict, bootstrap_probs):
     # Transpose bootstrap_probs to match the shape for broadcasting
-    bootstrap_probs = bootstrap_probs.T
-    absolute_errors = np.abs(bootstrap_probs - origin_predict[:, np.newaxis])
+    pred_probs_T = bootstrap_probs.T
+    absolute_errors = np.abs(pred_probs_T - origin_predict[:, np.newaxis])
     # Calculate Mean Absolute Prediction Error (MAPE)
     mape = np.mean(absolute_errors, axis = 1) * 100
 
@@ -141,6 +161,7 @@ def plot_mape_instability(origin_predict, bootstrap_probs):
     plt.xlabel("Original Model: Predicted Probability")
     plt.ylabel("MAPE (%)")
     plt.ylim(0, 20)
+    plt.xlim(0, 1)
     plt.title("MAPE Instability Plot")
     plt.grid(True)
     plt.legend()
@@ -152,9 +173,7 @@ def plot_mape_instability(origin_predict, bootstrap_probs):
 ## Define bootstraps and model training configuration
 param_grid = param_grid = {
         'penalty': ['l2'],
-        'C': [0.001, 0.01],
-        # 'C': [0.001, 0.01, 0.1, 1, 10, 100, 1000],
-        'class_weight': ['balanced'],
+        'C': [0.001, 0.01, 0.1, 1, 10, 100, 1000],
         #'solver': ["newton-cholesky", "sag", "saga", "lbfgs"],
         'max_iter': [500]
     }
@@ -192,17 +211,26 @@ plot_calibration_with_bootstrap(origin_predict, bootstrap_models, X, y, n_bootst
 
 # SAMPLED DATASET
 ## Results
+df_path = '/Users/natthanaphop_isa/Library/CloudStorage/GoogleDrive-natthanaphop.isa@gmail.com/My Drive/Academic Desk/2024Instability/model_instability/dataset/gusto_dataset(Sheet1).csv'
 results = '/Users/natthanaphop_isa/Library/CloudStorage/GoogleDrive-natthanaphop.isa@gmail.com/My Drive/Academic Desk/2024Instability/model_instability/results/instability/reduced'
 os.makedirs(results, exist_ok=True)
 
-df_sam = df.groupby(key).apply(lambda x: x.sample(frac=0.025, random_state=42)).reset_index(drop=True)
+df = pd.read_csv(df_path)
+df['sex'] = df['sex'].apply(lambda x: 1 if x == 'male' else 0)
+df['pmi'] = df['pmi'].apply(lambda x: 1 if x == 'yes' else 0)
+## Define features and target
+features = ['age', 'sex', 'hyp', 'htn', 'hrt', 'ste', 'pmi', 'sysbp']
+key = 'day30'
+
+df_sam = df.groupby(key).apply(lambda x: x.sample(frac=0.1, random_state=45)).reset_index(drop=True)
+print(df_sam.hist())
 df = df_sam
 X = df[features]
 y = df[key]
 
 # Train original model
 original_model = train_model(X, y, param_grid)
-origin_predict= original_model.predict_proba(X)[:, 1]
+origin_predict = original_model.predict_proba(X)[:, 1]
 
 # Bootstrap training
 bootstrap_models, bootstrap_probs = bootstrap_training(X, df, features, key, param_grid, n_bootstrap)
@@ -229,6 +257,7 @@ def plot_mape_instability2(origin_predict, bootstrap_probs):
     plt.xlabel("Original Model: Predicted Probability")
     plt.ylabel("MAPE (%)")
     plt.ylim(0, 20)
+    plt.xlim(0, 1)
     plt.title("MAPE Instability Plot")
     plt.grid(True)
     plt.legend()

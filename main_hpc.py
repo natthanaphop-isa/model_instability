@@ -157,7 +157,7 @@ param_grid = param_grid = {
         'solver': ["newton-cholesky", "sag", "saga", "lbfgs"],
         'max_iter': [1000]
     }
-n_bootstrap = 500
+n_bootstrap = 300
 
 # FULL DATASET
 ## Results
