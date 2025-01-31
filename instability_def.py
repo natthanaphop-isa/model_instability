@@ -10,7 +10,7 @@ import os
 from imblearn.over_sampling import RandomOverSampler, SMOTE
 from collections import Counter
 from imblearn.under_sampling import RandomUnderSampler
-
+import json
 # Load dataset
 def load_data(file_path, features, target_column):
     df = pd.read_excel(file_path) #.iloc[:, 1:]
@@ -115,19 +115,19 @@ def plot_calibration_with_bootstrap(origin_predict, bootstrap_models, X, y, n_bo
     for i, model in enumerate(bootstrap_models):
         bootstrap_probs = model.predict_proba(X)[:, 1]
         mean_predicted_prob, observed_fraction = calibration_curve(y, bootstrap_probs, n_bins=n_bins, strategy='uniform')
-        plt.plot(mean_predicted_prob, observed_fraction, color='grey', alpha=0.6, lw=1, label="Bootstrapped Models" if i == 0 else "")  # Label only the first curve
+        plt.plot(observed_fraction, mean_predicted_prob, color='grey', alpha=0.6, lw=1, label="Bootstrapped Models" if i == 0 else "")  # Label only the first curve
         # disp = CalibrationDisplay.from_predictions(y, bootstrap_probs)
     
     # Original model calibration curve
     mean_predicted_prob, observed_fraction = calibration_curve(np.array(y), np.array(origin_predict), n_bins=n_bins, strategy='uniform')
-    plt.plot(mean_predicted_prob, observed_fraction, 'k--', lw=2, label="Original Model (Dashed Line)")
+    plt.plot(observed_fraction, mean_predicted_prob, 'k--', lw=2, label="Original Model (Dashed Line)")
 
     # Ideal calibration line
     plt.plot([0, 1], [0, 1], 'k-', lw=1.5, label="Ideal Calibration Line")
 
     # Plot settings
-    plt.xlabel("Predicted Probability")
-    plt.ylabel("Observed Predicted Probability")
+    plt.xlabel("Observed Predicted Probabilities")
+    plt.ylabel("Model's Predicted Probabilities")
     plt.title(f"Model Calibration Instability with {n_bootstrap} Bootstrapped Models")
     plt.legend(loc='upper left', frameon=True, fontsize='small')
     plt.grid(True)
@@ -167,6 +167,20 @@ def plot_mape_instability(origin_predict, bootstrap_probs):
     plt.legend()
     plt.savefig(results + '/mape.png')
     plt.show()
+    
+    data = {'mean_mape_%':'','mape_5_%':''}
+    data['mean_mape_%'] = np.mean(mape)
+    count = 0
+    for i in list(mape):
+        if i < 5:
+            count = count + 1
+        else:
+            count = count
+            
+    mape_5 = (count/(len(list(mape)))) * 100
+    data['mape_5_%'] = mape_5
+    with open(results + '/mean_mape.json', 'w') as filehandle:
+        json.dump(data, filehandle)
     # print(f"Mean MAPE: {mean_mape:.2f}%")
 
 # Load dataset
@@ -177,7 +191,7 @@ param_grid = param_grid = {
         #'solver': ["newton-cholesky", "sag", "saga", "lbfgs"],
         'max_iter': [500]
     }
-n_bootstrap = 5
+n_bootstrap = 3
 
 # FULL DATASET
 ## Results
@@ -197,7 +211,7 @@ y = df[key]
 ## Train original model
 original_model = train_model(X, y, param_grid)
 origin_predict= original_model.predict_proba(X)[:, 1]
-
+np.save(results + "/origin_predict.npy",  np.array(origin_predict))
 # ## Bootstrap training
 bootstrap_models, bootstrap_probs = bootstrap_training(X, df, features, key, param_grid, n_bootstrap)
 
@@ -222,7 +236,8 @@ df['pmi'] = df['pmi'].apply(lambda x: 1 if x == 'yes' else 0)
 features = ['age', 'sex', 'hyp', 'htn', 'hrt', 'ste', 'pmi', 'sysbp']
 key = 'day30'
 
-df_sam = df.groupby(key).apply(lambda x: x.sample(frac=0.1, random_state=45)).reset_index(drop=True)
+df_sam = df.groupby(key).apply(lambda x: x.sample(frac=0.025, random_state=0)).reset_index(drop=True)
+df_sam.to_csv("/Users/natthanaphop_isa/Library/CloudStorage/GoogleDrive-natthanaphop.isa@gmail.com/My Drive/Academic Desk/2024Instability/model_instability/dataset/reduced_gusto_dataset(Sheet1).csv")
 print(df_sam.hist())
 df = df_sam
 X = df[features]
@@ -231,6 +246,7 @@ y = df[key]
 # Train original model
 original_model = train_model(X, y, param_grid)
 origin_predict = original_model.predict_proba(X)[:, 1]
+np.save(results + "/origin_predict.npy",  np.array(origin_predict))
 
 # Bootstrap training
 bootstrap_models, bootstrap_probs = bootstrap_training(X, df, features, key, param_grid, n_bootstrap)
@@ -263,7 +279,21 @@ def plot_mape_instability2(origin_predict, bootstrap_probs):
     plt.legend()
     plt.savefig(results + '/mape.png')
     plt.show()
-    # print(f"Mean MAPE: {mean_mape:.2f}%")
+    
+    data = {'mean_mape_%':'',
+            'mape_5_%':''}
+    data['mean_mape_%'] = np.mean(mape)
+    count = 0
+    for i in list(mape):
+        if i < 5:
+            count = count + 1
+        else:
+            count = count
+            
+    mape_5 = (count/(len(list(mape)))) * 100
+    data['mape_5_%'] = mape_5
+    with open(results + '/mean_mape.json', 'w') as filehandle:
+        json.dump(data, filehandle)
     
 # Plot results
 plot_mape_instability2(origin_predict, bootstrap_probs)
