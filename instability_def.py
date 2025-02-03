@@ -64,6 +64,7 @@ def train_model(X, y, param_grid, cv=10):
 def bootstrap_training(X, df, features, target_column, param_grid, n_bootstrap):
     bootstrap_models = []
     bootstrap_probs = []
+    predictions = pd.DataFrame({'origin_predict':origin_predict})
 
     for i in range(n_bootstrap):
         # Resample dataset
@@ -74,10 +75,12 @@ def bootstrap_training(X, df, features, target_column, param_grid, n_bootstrap):
         # Train model on bootstrapped dataset
         best_model = train_model(X_boot, y_boot, param_grid, cv=10)
         bootstrap_models.append(best_model)
-        bootstrap_probs.append(best_model.predict_proba(X)[:, 1])  # Predict on the original dataset
+        bootstrap_probs.append(best_model.predict_proba(X)[:, 1])
+        probs = pd.DataFrame({f'{i}_bootstrap_probs':best_model.predict_proba(X)[:, 1]})
+        predictions = pd.concat([predictions, probs], axis=1)
 
     np.save(results + "/bootstrap_probs.npy",  np.array(bootstrap_probs))
-    return bootstrap_models, np.array(bootstrap_probs)
+    return bootstrap_models, np.array(bootstrap_probs), predictions
 
 # Plot comparison of predicted probabilities
 def plot_probability_comparison(original_probs, bootstrap_probs, lowess_2_5, lowess_97_5, n_bootstrap):
@@ -148,7 +151,7 @@ def plot_mape_instability(origin_predict, bootstrap_probs):
     pred_probs_T = bootstrap_probs.T
     absolute_errors = np.abs(pred_probs_T - origin_predict[:, np.newaxis])
     # Calculate Mean Absolute Prediction Error (MAPE)
-    mape = np.mean(absolute_errors, axis = 1)
+    mape = np.mean(absolute_errors, axis = 1) * 100
 
     y_values = mape
     # Repeat origin_predict values for each column in bootstrap_probs
@@ -160,7 +163,7 @@ def plot_mape_instability(origin_predict, bootstrap_probs):
     # plt.axhline(mean_mape, color='red', linestyle='--', label=f"Mean MAPE: {mean_mape:.2f}%")
     plt.xlabel("Original Model: Predicted Probability")
     plt.ylabel("MAPE (%)")
-    plt.ylim(0, 1)
+    plt.ylim(0, 100)
     plt.xlim(0, 1)
     plt.title("MAPE Instability Plot")
     plt.grid(True)
@@ -189,8 +192,8 @@ def plot_mape_instability(origin_predict, bootstrap_probs):
 param_grid = {
         'penalty': ['l2'],
         'C': [0.001, 0.01, 0.1, 1, 10, 100, 1000],
-        #'solver': ["newton-cholesky", "sag", "saga", "lbfgs"],
-        'max_iter': [500]
+        'solver': ["newton-cholesky", "sag", "saga", "lbfgs"],
+        'max_iter': [1000]
     }
 
 n_bootstrap = 3
@@ -205,7 +208,7 @@ df = pd.read_csv(df_path)
 df['sex'] = df['sex'].apply(lambda x: 1 if x == 'male' else 0)
 df['pmi'] = df['pmi'].apply(lambda x: 1 if x == 'yes' else 0)
 ## Define features and target
-features = ['age', 'sex', 'hyp', 'htn', 'hrt', 'ste', 'pmi']
+features = ['age', 'sex', 'hyp', 'htn', 'hrt', 'ste', 'pmi', 'sysbp']
 key = 'day30'
 X = df[features]
 y = df[key]
@@ -213,9 +216,11 @@ y = df[key]
 ## Train original model
 original_model = train_model(X, y, param_grid)
 origin_predict= original_model.predict_proba(X)[:, 1]
+
 np.save(results + "/origin_predict.npy",  np.array(origin_predict))
 # ## Bootstrap training
-bootstrap_models, bootstrap_probs = bootstrap_training(X, df, features, key, param_grid, n_bootstrap)
+bootstrap_models, bootstrap_probs, predictions = bootstrap_training(X, df, features, key, param_grid, n_bootstrap)
+predictions.to_csv(results + '/full_predictions.csv')
 
 # ## Calculate LOWESS smoothed percentiles
 lowess_2_5, lowess_97_5 = calculate_lowess_percentiles(bootstrap_probs, origin_predict)
@@ -235,7 +240,7 @@ df = pd.read_csv(df_path)
 df['sex'] = df['sex'].apply(lambda x: 1 if x == 'male' else 0)
 df['pmi'] = df['pmi'].apply(lambda x: 1 if x == 'yes' else 0)
 ## Define features and target
-features = ['age', 'sex', 'hyp', 'htn', 'hrt', 'ste', 'pmi']
+features = ['age', 'sex', 'hyp', 'htn', 'hrt', 'ste', 'pmi','sysbp']
 key = 'day30'
 
 df_sam = df.groupby(key).apply(lambda x: x.sample(frac=0.025, random_state=0)).reset_index(drop=True)
@@ -251,7 +256,8 @@ origin_predict = original_model.predict_proba(X)[:, 1]
 np.save(results + "/origin_predict.npy",  np.array(origin_predict))
 
 # Bootstrap training
-bootstrap_models, bootstrap_probs = bootstrap_training(X, df, features, key, param_grid, n_bootstrap)
+bootstrap_models, bootstrap_probs, predictions = bootstrap_training(X, df, features, key, param_grid, n_bootstrap)
+predictions.to_csv(results + '/small_predictions.csv')
 
 # Calculate LOWESS smoothed percentiles
 lowess_2_5, lowess_97_5 = calculate_lowess_percentiles(bootstrap_probs, origin_predict)
@@ -261,7 +267,7 @@ def plot_mape_instability2(origin_predict, bootstrap_probs):
     bootstrap_probs = bootstrap_probs.T
     absolute_errors = np.abs(bootstrap_probs - origin_predict[:, np.newaxis])
     # Calculate Mean Absolute Prediction Error (MAPE)
-    mape = np.mean(absolute_errors, axis = 1)
+    mape = np.mean(absolute_errors, axis = 1) * 100
 
     y_values = mape
     # Repeat origin_predict values for each column in bootstrap_probs
@@ -274,7 +280,7 @@ def plot_mape_instability2(origin_predict, bootstrap_probs):
     # plt.axhline(mean_mape, color='red', linestyle='--', label=f"Mean MAPE: {mean_mape:.2f}%")
     plt.xlabel("Original Model: Predicted Probability")
     plt.ylabel("MAPE (%)")
-    plt.ylim(0, 1)
+    plt.ylim(0, 100)
     plt.xlim(0, 1)
     plt.title("MAPE Instability Plot")
     plt.grid(True)

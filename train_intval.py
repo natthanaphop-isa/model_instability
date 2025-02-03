@@ -82,11 +82,10 @@ def logitML(X, y):
     model = LogisticRegression(random_state=48)
 
     param_grid = {
-        'penalty': ['l1','l2'],
+        'penalty': ['l2'],
         'C': [0.001, 0.01, 0.1, 1, 10, 100, 1000],
-        'class_weight': ['balanced'],
         'solver': ["newton-cholesky", "sag", "saga", "lbfgs"],
-        'max_iter': [500]
+        'max_iter': [1000]
     }
 
     grid_search = GridSearchCV(
@@ -253,6 +252,29 @@ def bootstrap_metrics(model, X, y, model_name, n_iterations=1000):
         json.dump(results_model, file, indent=4)  # `indent=4` makes the file human-readable
 
     return results_model
+
+
+# Plot calibration curve for original and bootstrapped models
+def plot_calibration(best_model, X, y, n_bins=5):
+    plt.figure(figsize=(10, 6))
+    
+    origin_predict = best_model.predict_proba(X)[:, 1]
+    
+    # Original model calibration curve
+    mean_predicted_prob, observed_fraction = calibration_curve(y, origin_predict, n_bins=n_bins, strategy='uniform')
+    plt.plot(observed_fraction, mean_predicted_prob, 'k-', lw=2.5)
+
+    # Ideal calibration line
+    plt.plot([0, 1], [0, 1], 'k--', lw=1, label="Ideal Calibration Line")
+
+    # Plot settings
+    plt.xlabel("Observed Predicted Probabilities")
+    plt.ylabel("Model's Predicted Probabilities")
+    plt.title(f"Model Calibration Plot")
+    plt.legend(loc='upper left', frameon=True, fontsize='small')
+    plt.grid(True)
+    plt.savefig(results + '/calibration_comparison.png')
+    plt.show()
   
 # Load data
 ## Define paths and configuration
@@ -288,6 +310,7 @@ with open(os.path.join(results,f"best_params_{model_name}.json"), "w") as file:
 # Plot ROC curve
 # roc_curve(best_model, "Logistic Regression", X, y)
 bootstrap_metrics(best_model, X, y, model_name)
+plot_calibration(best_model, X, y)
 
 # Sampling
 results = '/Users/natthanaphop_isa/Library/CloudStorage/GoogleDrive-natthanaphop.isa@gmail.com/My Drive/Academic Desk/2024Instability/model_instability/results/dev_val/reduced'
@@ -306,3 +329,4 @@ with open(os.path.join(results,f"best_params_{model_name}.json"), "w") as file:
 # Plot ROC curve
 # roc_curve(best_model, "Logistic Regression", X, y)
 bootstrap_metrics(best_model, X, y, model_name)
+plot_calibration(best_model, X, y)
