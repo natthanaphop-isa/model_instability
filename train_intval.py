@@ -256,7 +256,7 @@ def bootstrap_metrics(model, X, y, model_name, n_iterations=1000):
   
 # Load data
 ## Define paths and configuration
-df_path = '/Users/natthanaphop_isa/Library/CloudStorage/GoogleDrive-natthanaphop.isa@gmail.com/My Drive/Academic Desk/2024Instability/model_instability/dataset/GUSTO/gusto_dataset(Sheet1).csv'
+df_path = '/Users/natthanaphop_isa/Library/CloudStorage/GoogleDrive-natthanaphop.isa@gmail.com/My Drive/Academic Desk/2024Instability/model_instability/dataset/gusto_dataset(Sheet1).csv'
 results = '/Users/natthanaphop_isa/Library/CloudStorage/GoogleDrive-natthanaphop.isa@gmail.com/My Drive/Academic Desk/2024Instability/model_instability/results/dev_val/full'
 os.makedirs(results, exist_ok=True)
 
@@ -276,7 +276,7 @@ y = df_full[key]
 explore(X, y, name = 'Full')
 
 # Resample data
-X, y = sampling(X, y, mode = 'over')
+X, y = sampling(X, y)
 
 # Train the model
 model_name = "FullLogit"

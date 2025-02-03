@@ -144,13 +144,13 @@ def calculate_lowess_percentiles(bootstrap_probs, original_probs):
 
 # Plot MAPE instability 
 def plot_mape_instability(origin_predict, bootstrap_probs):
-    # Transpose bootstrap_probs to match the shape for broadcasting
+    
     pred_probs_T = bootstrap_probs.T
     absolute_errors = np.abs(pred_probs_T - origin_predict[:, np.newaxis])
     # Calculate Mean Absolute Prediction Error (MAPE)
-    mape = np.mean(absolute_errors, axis = 1) * 100
+    mape = np.mean(absolute_errors, axis = 1)
 
-    y_values = mape.flatten()
+    y_values = mape
     # Repeat origin_predict values for each column in bootstrap_probs
     # x_values = np.repeat(origin_predict, absolute_errors.shape[1])
     x_values = origin_predict
@@ -160,7 +160,7 @@ def plot_mape_instability(origin_predict, bootstrap_probs):
     # plt.axhline(mean_mape, color='red', linestyle='--', label=f"Mean MAPE: {mean_mape:.2f}%")
     plt.xlabel("Original Model: Predicted Probability")
     plt.ylabel("MAPE (%)")
-    plt.ylim(0, 20)
+    plt.ylim(0, 1)
     plt.xlim(0, 1)
     plt.title("MAPE Instability Plot")
     plt.grid(True)
@@ -172,7 +172,7 @@ def plot_mape_instability(origin_predict, bootstrap_probs):
     data['mean_mape_%'] = np.mean(mape)
     count = 0
     for i in list(mape):
-        if i < 5:
+        if i <= 5:
             count = count + 1
         else:
             count = count
@@ -182,15 +182,17 @@ def plot_mape_instability(origin_predict, bootstrap_probs):
     with open(results + '/mean_mape.json', 'w') as filehandle:
         json.dump(data, filehandle)
     # print(f"Mean MAPE: {mean_mape:.2f}%")
+    return mape
 
 # Load dataset
 ## Define bootstraps and model training configuration
-param_grid = param_grid = {
+param_grid = {
         'penalty': ['l2'],
         'C': [0.001, 0.01, 0.1, 1, 10, 100, 1000],
         #'solver': ["newton-cholesky", "sag", "saga", "lbfgs"],
         'max_iter': [500]
     }
+
 n_bootstrap = 3
 
 # FULL DATASET
@@ -203,7 +205,7 @@ df = pd.read_csv(df_path)
 df['sex'] = df['sex'].apply(lambda x: 1 if x == 'male' else 0)
 df['pmi'] = df['pmi'].apply(lambda x: 1 if x == 'yes' else 0)
 ## Define features and target
-features = ['age', 'sex', 'hyp', 'htn', 'hrt', 'ste', 'pmi', 'sysbp']
+features = ['age', 'sex', 'hyp', 'htn', 'hrt', 'ste', 'pmi']
 key = 'day30'
 X = df[features]
 y = df[key]
@@ -233,7 +235,7 @@ df = pd.read_csv(df_path)
 df['sex'] = df['sex'].apply(lambda x: 1 if x == 'male' else 0)
 df['pmi'] = df['pmi'].apply(lambda x: 1 if x == 'yes' else 0)
 ## Define features and target
-features = ['age', 'sex', 'hyp', 'htn', 'hrt', 'ste', 'pmi', 'sysbp']
+features = ['age', 'sex', 'hyp', 'htn', 'hrt', 'ste', 'pmi']
 key = 'day30'
 
 df_sam = df.groupby(key).apply(lambda x: x.sample(frac=0.025, random_state=0)).reset_index(drop=True)
@@ -259,9 +261,9 @@ def plot_mape_instability2(origin_predict, bootstrap_probs):
     bootstrap_probs = bootstrap_probs.T
     absolute_errors = np.abs(bootstrap_probs - origin_predict[:, np.newaxis])
     # Calculate Mean Absolute Prediction Error (MAPE)
-    mape = np.mean(absolute_errors, axis = 1) * 100
+    mape = np.mean(absolute_errors, axis = 1)
 
-    y_values = mape.flatten()
+    y_values = mape
     # Repeat origin_predict values for each column in bootstrap_probs
     # x_values = np.repeat(origin_predict, absolute_errors.shape[1])
     x_values = origin_predict
@@ -272,7 +274,7 @@ def plot_mape_instability2(origin_predict, bootstrap_probs):
     # plt.axhline(mean_mape, color='red', linestyle='--', label=f"Mean MAPE: {mean_mape:.2f}%")
     plt.xlabel("Original Model: Predicted Probability")
     plt.ylabel("MAPE (%)")
-    plt.ylim(0, 20)
+    plt.ylim(0, 1)
     plt.xlim(0, 1)
     plt.title("MAPE Instability Plot")
     plt.grid(True)
@@ -285,12 +287,12 @@ def plot_mape_instability2(origin_predict, bootstrap_probs):
     data['mean_mape_%'] = np.mean(mape)
     count = 0
     for i in list(mape):
-        if i < 5:
+        if i <= 5:
             count = count + 1
         else:
             count = count
             
-    mape_5 = (count/(len(list(mape)))) * 100
+    mape_5 = (count/(len(list(mape))))
     data['mape_5_%'] = mape_5
     with open(results + '/mean_mape.json', 'w') as filehandle:
         json.dump(data, filehandle)

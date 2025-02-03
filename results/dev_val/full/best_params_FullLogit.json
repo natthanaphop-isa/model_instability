@@ -1,0 +1,7 @@
+{
+    "C": 10,
+    "class_weight": "balanced",
+    "max_iter": 500,
+    "penalty": "l2",
+    "solver": "lbfgs"
+}
