@@ -68,7 +68,7 @@ def bootstrap_training(X, df, features, target_column, param_grid, n_bootstrap):
 
     for i in range(n_bootstrap):
         # Resample dataset
-        boot_df = resample(df, n_samples=len(df), random_state=i)
+        boot_df = resample(df, n_samples=len(df))
         X_boot = boot_df[features]
         y_boot = boot_df[target_column]
 
