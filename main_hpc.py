@@ -46,6 +46,7 @@ def train_model(X, y, param_grid, cv=10):
 def bootstrap_training(X, df, features, target_column, param_grid, n_bootstrap):
     bootstrap_models = []
     bootstrap_probs = []
+    predictions = pd.DataFrame({'origin_predict':origin_predict})
 
     for i in range(n_bootstrap):
         # Resample dataset
@@ -56,10 +57,12 @@ def bootstrap_training(X, df, features, target_column, param_grid, n_bootstrap):
         # Train model on bootstrapped dataset
         best_model = train_model(X_boot, y_boot, param_grid, cv=10)
         bootstrap_models.append(best_model)
-        bootstrap_probs.append(best_model.predict_proba(X)[:, 1])  # Predict on the original dataset
-
+        bootstrap_probs.append(best_model.predict_proba(X)[:, 1])
+        probs = pd.DataFrame({f'{i}_bootstrap_probs':best_model.predict_proba(X)[:, 1]})
+        predictions = pd.concat([predictions, probs], axis=1)
+        
     np.save(results + "/bootstrap_probs.npy",  np.array(bootstrap_probs))
-    return bootstrap_models, np.array(bootstrap_probs)
+    return bootstrap_models, np.array(bootstrap_probs), predictions
 
 # Plot comparison of predicted probabilities
 def plot_probability_comparison(original_probs, bootstrap_probs, lowess_2_5, lowess_97_5, n_bootstrap):
@@ -179,8 +182,8 @@ original_model = train_model(X, y, param_grid)
 origin_predict= original_model.predict_proba(X)[:, 1]
 
 # ## Bootstrap training
-bootstrap_models, bootstrap_probs = bootstrap_training(X, df, features, key, param_grid, n_bootstrap)
-
+bootstrap_models, bootstrap_probs, predictions = bootstrap_training(X, df, features, key, param_grid, n_bootstrap)
+predictions.to_csv(results + '/full_predictions.csv')
 # ## Calculate LOWESS smoothed percentiles
 lowess_2_5, lowess_97_5 = calculate_lowess_percentiles(bootstrap_probs, origin_predict)
 
@@ -191,8 +194,14 @@ plot_calibration_with_bootstrap(origin_predict, bootstrap_models, X, y, n_bootst
 
 # SAMPLED DATASET
 ## Results
+df_path = '/home/natthanaphop.isa/model_instability/dataset/gusto_dataset(Sheet1).csv'
 results = '/home/natthanaphop.isa/model_instability/results/instability/reduced'
 os.makedirs(results, exist_ok=True)
+
+# X, y, df = load_data(df_path, features, key, mode = 'sim')
+df = pd.read_csv(df_path)
+df['sex'] = df['sex'].apply(lambda x: 1 if x == 'male' else 0)
+df['pmi'] = df['pmi'].apply(lambda x: 1 if x == 'yes' else 0)
 
 df_sam = df.groupby(key).apply(lambda x: x.sample(frac=0.025, random_state=42)).reset_index(drop=True)
 df = df_sam
@@ -204,7 +213,8 @@ original_model = train_model(X, y, param_grid)
 origin_predict= original_model.predict_proba(X)[:, 1]
 
 # Bootstrap training
-bootstrap_models, bootstrap_probs = bootstrap_training(X, df, features, key, param_grid, n_bootstrap)
+bootstrap_models, bootstrap_probs, predictions = bootstrap_training(X, df, features, key, param_grid, n_bootstrap)
+predictions.to_csv(results + '/small_predictions.csv')
 
 # Calculate LOWESS smoothed percentiles
 lowess_2_5, lowess_97_5 = calculate_lowess_percentiles(bootstrap_probs, origin_predict)
