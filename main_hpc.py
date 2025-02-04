@@ -140,7 +140,8 @@ def plot_mape_instability(origin_predict, bootstrap_probs):
     # plt.axhline(mean_mape, color='red', linestyle='--', label=f"Mean MAPE: {mean_mape:.2f}%")
     plt.xlabel("Original Model: Predicted Probability")
     plt.ylabel("MAPE (%)")
-    plt.ylim(0, 20)
+    plt.ylim(0, 100)
+    plt.xlim(0,1)
     plt.title("MAPE Instability Plot")
     plt.grid(True)
     plt.legend()
@@ -153,7 +154,6 @@ def plot_mape_instability(origin_predict, bootstrap_probs):
 param_grid = param_grid = {
         'penalty': ['l2'],
         'C': [0.001, 0.01, 0.1, 1, 10, 100, 1000],
-        'class_weight': ['balanced'],
         'solver': ["newton-cholesky", "sag", "saga", "lbfgs"],
         'max_iter': [1000]
     }
@@ -227,7 +227,8 @@ def plot_mape_instability2(origin_predict, bootstrap_probs):
     # plt.axhline(mean_mape, color='red', linestyle='--', label=f"Mean MAPE: {mean_mape:.2f}%")
     plt.xlabel("Original Model: Predicted Probability")
     plt.ylabel("MAPE (%)")
-    plt.ylim(0, 20)
+    plt.xlim(0, 1)
+    plt.ylim(0, 100)
     plt.title("MAPE Instability Plot")
     plt.grid(True)
     plt.legend()

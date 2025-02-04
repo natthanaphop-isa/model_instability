@@ -153,7 +153,7 @@ def plot_mape_instability(origin_predict, bootstrap_probs):
     # Calculate Mean Absolute Prediction Error (MAPE)
     mape = np.mean(absolute_errors, axis = 1) * 100
 
-    y_values = mape
+    y_values = mape.flatten()
     # Repeat origin_predict values for each column in bootstrap_probs
     # x_values = np.repeat(origin_predict, absolute_errors.shape[1])
     x_values = origin_predict
@@ -243,8 +243,8 @@ df['pmi'] = df['pmi'].apply(lambda x: 1 if x == 'yes' else 0)
 features = ['age', 'sex', 'hyp', 'htn', 'hrt', 'ste', 'pmi','sysbp']
 key = 'day30'
 
-df_sam = df.groupby(key).apply(lambda x: x.sample(frac=0.025, random_state=0)).reset_index(drop=True)
-df_sam.to_csv("/Users/natthanaphop_isa/Library/CloudStorage/GoogleDrive-natthanaphop.isa@gmail.com/My Drive/Academic Desk/2024Instability/model_instability/dataset/reduced_gusto_dataset(Sheet1).csv")
+# df_sam = df.groupby(key).apply(lambda x: x.sample(frac=0.025, random_state=0)).reset_index(drop=True)
+df_sam = pd.read_csv("/Users/natthanaphop_isa/Library/CloudStorage/GoogleDrive-natthanaphop.isa@gmail.com/My Drive/Academic Desk/2024Instability/model_instability/dataset/reduced_gusto_dataset(Sheet1).csv")
 print(df_sam.hist())
 df = df_sam
 X = df[features]
