@@ -95,15 +95,15 @@ def plot_probability_comparison(original_probs, bootstrap_probs, lowess_2_5, low
 def plot_calibration_with_bootstrap(origin_predict, bootstrap_models, X, y, n_bootstrap, n_bins=5):
     plt.figure(figsize=(10, 6))
 
-    # Original model calibration curve
-    mean_predicted_prob, observed_fraction = calibration_curve(y, origin_predict, n_bins=n_bins, strategy='uniform')
-    plt.plot(mean_predicted_prob, observed_fraction, 'k--', lw=2, label="Original Model (Dashed Line)")
-
     # Bootstrap models calibration curves
     for i, model in enumerate(bootstrap_models):
         bootstrap_probs = model.predict_proba(X)[:, 1]
         mean_predicted_prob, observed_fraction = calibration_curve(y, bootstrap_probs, n_bins=n_bins, strategy='uniform')
         plt.plot(mean_predicted_prob, observed_fraction, color='grey', alpha=0.6, lw=1, label="Bootstrap Models" if i == 0 else "")  # Label only the first curve
+
+    # Original model calibration curve
+    mean_predicted_prob, observed_fraction = calibration_curve(y, origin_predict, n_bins=n_bins, strategy='uniform')
+    plt.plot(mean_predicted_prob, observed_fraction, 'k--', lw=2, label="Original Model (Dashed Line)")
 
     # Ideal calibration line
     plt.plot([0, 1], [0, 1], 'k-', lw=1.5, label="Ideal Calibration Line")
