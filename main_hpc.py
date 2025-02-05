@@ -3,17 +3,35 @@ import numpy as np
 from sklearn.linear_model import LogisticRegression
 from sklearn.utils import resample
 from sklearn.model_selection import GridSearchCV
-from sklearn.calibration import calibration_curve
+from sklearn.calibration import calibration_curve, CalibrationDisplay
 import matplotlib.pyplot as plt
 import statsmodels.api as sm
 import os
-
+from imblearn.over_sampling import RandomOverSampler, SMOTE
+from collections import Counter
+from imblearn.under_sampling import RandomUnderSampler
+import json
 # Load dataset
 def load_data(file_path, features, target_column):
     df = pd.read_excel(file_path) #.iloc[:, 1:]
     X = df[features]
     y = df[target_column]
     return X, y, df
+
+def sampling(X, y, mode=None):
+    """Handles data sampling: oversampling or undersampling."""
+    if mode == 'over':
+        sm = SMOTE(random_state=30)
+        X_res, y_res = sm.fit_resample(X, y)
+        print('Resampled dataset shape:', Counter(y_res))
+    elif mode == 'under':
+        rus = RandomUnderSampler(random_state=30)
+        X_res, y_res = rus.fit_resample(X, y)
+        print('Resampled dataset shape:', Counter(y_res))
+    else:
+        X_res, y_res = X, y
+
+    return np.array(X_res), np.array(y_res)
 
 # Perform exploratory data analysis (EDA)
 def exploratory_data_analysis(df):
@@ -50,7 +68,7 @@ def bootstrap_training(X, df, features, target_column, param_grid, n_bootstrap):
 
     for i in range(n_bootstrap):
         # Resample dataset
-        boot_df = resample(df, n_samples=len(df))
+        boot_df = resample(df, replace = True, n_samples=len(df))
         X_boot = boot_df[features]
         y_boot = boot_df[target_column]
 
@@ -60,7 +78,7 @@ def bootstrap_training(X, df, features, target_column, param_grid, n_bootstrap):
         bootstrap_probs.append(best_model.predict_proba(X)[:, 1])
         probs = pd.DataFrame({f'{i}_bootstrap_probs':best_model.predict_proba(X)[:, 1]})
         predictions = pd.concat([predictions, probs], axis=1)
-        
+
     np.save(results + "/bootstrap_probs.npy",  np.array(bootstrap_probs))
     return bootstrap_models, np.array(bootstrap_probs), predictions
 
@@ -83,34 +101,36 @@ def plot_probability_comparison(original_probs, bootstrap_probs, lowess_2_5, low
     plt.plot(lowess_97_5[:, 0], lowess_97_5[:, 1], 'k--', lw=1, label="LOWESS 97.5th Percentile Line")
 
     # Plot settings
-    plt.xlabel("Original Model Predicted Probabilities")
-    plt.ylabel("Bootstrapped Models Predicted Probabilities")
+    plt.xlabel("Original Model Estimated Risk")
+    plt.ylabel("Bootstrapped Models Estimated Risk")
     plt.title(f"Comparison of Predicted Probabilities: Original Model vs. {n_bootstrap} Bootstrapped Models")
     plt.grid(False)
     plt.legend()
     plt.savefig(results + '/probability_comparison.png')
     plt.show()
 
+
 # Plot calibration curve for original and bootstrapped models
 def plot_calibration_with_bootstrap(origin_predict, bootstrap_models, X, y, n_bootstrap, n_bins=5):
     plt.figure(figsize=(10, 6))
-
+    
     # Bootstrap models calibration curves
     for i, model in enumerate(bootstrap_models):
         bootstrap_probs = model.predict_proba(X)[:, 1]
         mean_predicted_prob, observed_fraction = calibration_curve(y, bootstrap_probs, n_bins=n_bins, strategy='uniform')
-        plt.plot(mean_predicted_prob, observed_fraction, color='grey', alpha=0.6, lw=1, label="Bootstrap Models" if i == 0 else "")  # Label only the first curve
-
+        plt.plot(observed_fraction, mean_predicted_prob, color='grey', alpha=0.6, lw=1, label="Bootstrapped Models" if i == 0 else "")  # Label only the first curve
+        # disp = CalibrationDisplay.from_predictions(y, bootstrap_probs)
+    
     # Original model calibration curve
-    mean_predicted_prob, observed_fraction = calibration_curve(y, origin_predict, n_bins=n_bins, strategy='uniform')
-    plt.plot(mean_predicted_prob, observed_fraction, 'k--', lw=2, label="Original Model (Dashed Line)")
+    mean_predicted_prob, observed_fraction = calibration_curve(np.array(y), np.array(origin_predict), n_bins=n_bins, strategy='uniform')
+    plt.plot(observed_fraction, mean_predicted_prob, 'k--', lw=2, label="Original Model (Dashed Line)")
 
     # Ideal calibration line
     plt.plot([0, 1], [0, 1], 'k-', lw=1.5, label="Ideal Calibration Line")
 
     # Plot settings
-    plt.xlabel("Predicted Probability")
-    plt.ylabel("Observed Predicted Probability")
+    plt.xlabel("Observed Predicted Probabilities")
+    plt.ylabel("Model's Predicted Probabilities")
     plt.title(f"Model Calibration Instability with {n_bootstrap} Bootstrapped Models")
     plt.legend(loc='upper left', frameon=True, fontsize='small')
     plt.grid(True)
@@ -127,9 +147,9 @@ def calculate_lowess_percentiles(bootstrap_probs, original_probs):
 
 # Plot MAPE instability 
 def plot_mape_instability(origin_predict, bootstrap_probs):
-    # Transpose bootstrap_probs to match the shape for broadcasting
-    bootstrap_probs = bootstrap_probs.T
-    absolute_errors = np.abs(bootstrap_probs - origin_predict[:, np.newaxis])
+    
+    pred_probs_T = bootstrap_probs.T
+    absolute_errors = np.abs(pred_probs_T - origin_predict[:, np.newaxis])
     # Calculate Mean Absolute Prediction Error (MAPE)
     mape = np.mean(absolute_errors, axis = 1) * 100
 
@@ -144,30 +164,45 @@ def plot_mape_instability(origin_predict, bootstrap_probs):
     plt.xlabel("Original Model: Predicted Probability")
     plt.ylabel("MAPE (%)")
     plt.ylim(0, 100)
-    plt.xlim(0,1)
+    plt.xlim(0, 1)
     plt.title("MAPE Instability Plot")
     plt.grid(True)
     plt.legend()
     plt.savefig(results + '/mape.png')
     plt.show()
+    
+    data = {'mean_mape_%':'','mape_5_%':''}
+    data['mean_mape_%'] = np.mean(mape)
+    count = 0
+    for i in list(mape):
+        if i <= 5:
+            count = count + 1
+        else:
+            count = count
+            
+    mape_5 = (count/(len(list(mape)))) * 100
+    data['mape_5_%'] = mape_5
+    with open(results + '/mean_mape.json', 'w') as filehandle:
+        json.dump(data, filehandle)
     # print(f"Mean MAPE: {mean_mape:.2f}%")
+    return mape
 
-# Load dataset
-## Define bootstraps and model training configuration
-param_grid = param_grid = {
+# Step 1: Define bootstraps and model training configuration
+param_grid = {
         'penalty': ['l2'],
         'C': [0.001, 0.01, 0.1, 1, 10, 100, 1000],
         'solver': ["newton-cholesky", "sag", "saga", "lbfgs"],
         'max_iter': [1000]
     }
+
 n_bootstrap = 200
 
-# FULL DATASET
-## Results
+# Step 2: FULL DATASET
+## Directory and data pre-processing
 df_path = '/home/natthanaphop.isa/model_instability/dataset/gusto_dataset(Sheet1).csv'
 results = '/home/natthanaphop.isa/model_instability/results/instability/full'
 os.makedirs(results, exist_ok=True)
-# X, y, df = load_data(df_path, features, key, mode = 'sim')
+
 df = pd.read_csv(df_path)
 df['sex'] = df['sex'].apply(lambda x: 1 if x == 'male' else 0)
 df['pmi'] = df['pmi'].apply(lambda x: 1 if x == 'yes' else 0)
@@ -180,73 +215,43 @@ y = df[key]
 ## Train original model
 original_model = train_model(X, y, param_grid)
 origin_predict= original_model.predict_proba(X)[:, 1]
-
+np.save(results + "/origin_predict.npy",  np.array(origin_predict))
 # ## Bootstrap training
 bootstrap_models, bootstrap_probs, predictions = bootstrap_training(X, df, features, key, param_grid, n_bootstrap)
 predictions.to_csv(results + '/full_predictions.csv')
-# ## Calculate LOWESS smoothed percentiles
+
+## Calculate LOWESS smoothed percentiles
 lowess_2_5, lowess_97_5 = calculate_lowess_percentiles(bootstrap_probs, origin_predict)
 
-# ## Plot results
+## Plot results
 plot_mape_instability(origin_predict, bootstrap_probs)
 plot_probability_comparison(origin_predict, bootstrap_probs, lowess_2_5, lowess_97_5, n_bootstrap)
 plot_calibration_with_bootstrap(origin_predict, bootstrap_models, X, y, n_bootstrap)
 
-# SAMPLED DATASET
-## Results
-df_path = '/home/natthanaphop.isa/model_instability/dataset/gusto_dataset(Sheet1).csv'
-results = '/home/natthanaphop.isa/model_instability/results/instability/reduced'
+# Step 3: SAMPLED DATASET
+## Directory and data pre-processing
+# df_sam = df.groupby(key).apply(lambda x: x.sample(frac=0.025, random_state=0)).reset_index(drop=True)
+df_sam = pd.read_csv('/home/natthanaphop.isa/model_instability/dataset/sampled_gusto_dataset(Sheet1).csv')
+results = '/home/natthanaphop.isa/model_instability/results/instability/sampled'
 os.makedirs(results, exist_ok=True)
 
-# X, y, df = load_data(df_path, features, key, mode = 'sim')
-df = pd.read_csv(df_path)
-df['sex'] = df['sex'].apply(lambda x: 1 if x == 'male' else 0)
-df['pmi'] = df['pmi'].apply(lambda x: 1 if x == 'yes' else 0)
-
-df_sam = df.groupby(key).apply(lambda x: x.sample(frac=0.025, random_state=42)).reset_index(drop=True)
 df = df_sam
 X = df[features]
 y = df[key]
 
-# Train original model
+## Train original model
 original_model = train_model(X, y, param_grid)
-origin_predict= original_model.predict_proba(X)[:, 1]
+origin_predict = original_model.predict_proba(X)[:, 1]
+np.save(results + "/sampled_origin_predict.npy",  np.array(origin_predict))
 
-# Bootstrap training
+## Bootstrap training
 bootstrap_models, bootstrap_probs, predictions = bootstrap_training(X, df, features, key, param_grid, n_bootstrap)
-predictions.to_csv(results + '/small_predictions.csv')
+predictions.to_csv(results + '/sampled_predictions.csv')
 
-# Calculate LOWESS smoothed percentiles
+## Calculate LOWESS smoothed percentiles
 lowess_2_5, lowess_97_5 = calculate_lowess_percentiles(bootstrap_probs, origin_predict)
 
-def plot_mape_instability2(origin_predict, bootstrap_probs):
-    # Transpose bootstrap_probs to match the shape for broadcasting
-    bootstrap_probs = bootstrap_probs.T
-    absolute_errors = np.abs(bootstrap_probs - origin_predict[:, np.newaxis])
-    # Calculate Mean Absolute Prediction Error (MAPE)
-    mape = np.mean(absolute_errors, axis = 1) * 100
-
-    y_values = mape.flatten()
-    # Repeat origin_predict values for each column in bootstrap_probs
-    # x_values = np.repeat(origin_predict, absolute_errors.shape[1])
-    x_values = origin_predict
-    
-    # Plot MAPE instability
-    plt.figure(figsize=(10, 6))
-    plt.scatter(x_values, y_values, alpha=1, s=1)
-    # plt.axhline(mean_mape, color='red', linestyle='--', label=f"Mean MAPE: {mean_mape:.2f}%")
-    plt.xlabel("Original Model: Predicted Probability")
-    plt.ylabel("MAPE (%)")
-    plt.xlim(0, 1)
-    plt.ylim(0, 100)
-    plt.title("MAPE Instability Plot")
-    plt.grid(True)
-    plt.legend()
-    plt.savefig(results + '/mape.png')
-    plt.show()
-    # print(f"Mean MAPE: {mean_mape:.2f}%")
-    
-# Plot results
-plot_mape_instability2(origin_predict, bootstrap_probs)
+## Plot results
+plot_mape_instability(origin_predict, bootstrap_probs)
 plot_probability_comparison(origin_predict, bootstrap_probs, lowess_2_5, lowess_97_5, n_bootstrap)
 plot_calibration_with_bootstrap(origin_predict, bootstrap_models, X, y, n_bootstrap)
