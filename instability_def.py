@@ -68,7 +68,7 @@ def bootstrap_training(X, df, features, target_column, param_grid, n_bootstrap):
 
     for i in range(n_bootstrap):
         # Resample dataset
-        boot_df = resample(df, n_samples=len(df))
+        boot_df = resample(df, replace = True, n_samples=len(df))
         X_boot = boot_df[features]
         y_boot = boot_df[target_column]
 
@@ -101,8 +101,8 @@ def plot_probability_comparison(original_probs, bootstrap_probs, lowess_2_5, low
     plt.plot(lowess_97_5[:, 0], lowess_97_5[:, 1], 'k--', lw=1, label="LOWESS 97.5th Percentile Line")
 
     # Plot settings
-    plt.xlabel("Original Model Predicted Probabilities")
-    plt.ylabel("Bootstrapped Models Predicted Probabilities")
+    plt.xlabel("Original Model Estimated Risk")
+    plt.ylabel("Bootstrapped Models Estimated Risk")
     plt.title(f"Comparison of Predicted Probabilities: Original Model vs. {n_bootstrap} Bootstrapped Models")
     plt.grid(False)
     plt.legend()
@@ -262,48 +262,7 @@ predictions.to_csv(results + '/small_predictions.csv')
 # Calculate LOWESS smoothed percentiles
 lowess_2_5, lowess_97_5 = calculate_lowess_percentiles(bootstrap_probs, origin_predict)
 
-def plot_mape_instability2(origin_predict, bootstrap_probs):
-    # Transpose bootstrap_probs to match the shape for broadcasting
-    bootstrap_probs = bootstrap_probs.T
-    absolute_errors = np.abs(bootstrap_probs - origin_predict[:, np.newaxis])
-    # Calculate Mean Absolute Prediction Error (MAPE)
-    mape = np.mean(absolute_errors, axis = 1) * 100
-
-    y_values = mape
-    # Repeat origin_predict values for each column in bootstrap_probs
-    # x_values = np.repeat(origin_predict, absolute_errors.shape[1])
-    x_values = origin_predict
-    
-    # Plot MAPE instability
-    plt.figure(figsize=(10, 6))
-    plt.scatter(x_values, y_values, alpha=1, s=1)
-    # plt.axhline(mean_mape, color='red', linestyle='--', label=f"Mean MAPE: {mean_mape:.2f}%")
-    plt.xlabel("Original Model: Predicted Probability")
-    plt.ylabel("MAPE (%)")
-    plt.ylim(0, 100)
-    plt.xlim(0, 1)
-    plt.title("MAPE Instability Plot")
-    plt.grid(True)
-    plt.legend()
-    plt.savefig(results + '/mape.png')
-    plt.show()
-    
-    data = {'mean_mape_%':'',
-            'mape_5_%':''}
-    data['mean_mape_%'] = np.mean(mape)
-    count = 0
-    for i in list(mape):
-        if i <= 5:
-            count = count + 1
-        else:
-            count = count
-            
-    mape_5 = (count/(len(list(mape))))
-    data['mape_5_%'] = mape_5
-    with open(results + '/mean_mape.json', 'w') as filehandle:
-        json.dump(data, filehandle)
-    
 # Plot results
-plot_mape_instability2(origin_predict, bootstrap_probs)
+plot_mape_instability(origin_predict, bootstrap_probs)
 plot_probability_comparison(origin_predict, bootstrap_probs, lowess_2_5, lowess_97_5, n_bootstrap)
 plot_calibration_with_bootstrap(origin_predict, bootstrap_models, X, y, n_bootstrap)
