@@ -53,9 +53,9 @@ def exploratory_data_analysis(df):
     plt.show()
 
 # Train logistic regression with GridSearchCV
-def train_model(X, y, param_grid):
+def train_model(X, y, param_grid, cv=10):
     logistic_model = LogisticRegression()
-    grid_search = GridSearchCV(estimator=logistic_model, param_grid=param_grid, cv=10, n_jobs=-1, verbose=2)
+    grid_search = GridSearchCV(estimator=logistic_model, param_grid=param_grid, cv=cv, n_jobs=-1, verbose=2)
     grid_search.fit(X, y)
     best_model = grid_search.best_estimator_
     return best_model
