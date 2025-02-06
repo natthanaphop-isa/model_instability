@@ -1,3 +1,5 @@
+about-time==4.2.1
+alive-progress==3.2.0
 appnope==0.1.4
 asttokens==3.0.0
 comm==0.2.2
@@ -9,6 +11,7 @@ et_xmlfile==2.0.0
 exceptiongroup==1.2.2
 executing==2.1.0
 fonttools==4.55.3
+grapheme==0.6.0
 imbalanced-learn==0.12.4
 imblearn==0.0
 importlib_metadata==8.5.0
