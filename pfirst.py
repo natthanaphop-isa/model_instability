@@ -49,7 +49,7 @@ from imblearn.over_sampling import SMOTENC, ADASYN, BorderlineSMOTE
 from alive_progress import alive_bar
 
 # --- Set random state for reproducibility
-RANDOM_STATE = 1234
+RANDOM_STATE = 0000
 
 
 # --- Helper Functions ---
@@ -395,7 +395,7 @@ df['sex'] = df['sex'].apply(lambda x: 1 if x == 'male' else 0)
 df['pmi'] = df['pmi'].apply(lambda x: 1 if x == 'yes' else 0)
 
 # Keep the outcome (day30) and the 7 predictors of interest
-x = df[["age", "ste", "htn", "sex", "hyp", "hrt", "pmi"]]
+x = df[["age", "ste", "htn", "sex", "hyp", "hrt", "pmi","sysbp"]]
 y = df["day30"]
 
 results = '/home/natthanaphop.isa/model_instability/results/instability2/full'
@@ -513,13 +513,24 @@ plot_classification_instability(instability_df)
 # instability_df_ada = calculate_classification_instability(pred_sta_ada,0.100, BS_number)
 # plot_classification_instability(instability_df_ada)
 
-results = '/home/natthanaphop.isa/model_instability/results/instability2/sampled'
-os.makedirs(results, exist_ok=True)
 
-# small sample
-data = pd.concat([x, y], axis=1) 
-data_sample = data.sample(n=1100, replace=False).reset_index(drop=True)
-x, y = data_sample.iloc[:, :-1], data_sample.iloc[:, -1]
+
+#Small
+try:
+    df = pd.read_csv("/Users/natthanaphop_isa/Library/CloudStorage/GoogleDrive-natthanaphop.isa@gmail.com/My Drive/Academic Desk/2024Instability/model_instability/dataset/sampled_gusto_dataset(Sheet1).csv")
+except FileNotFoundError:
+    print("Error: The specified data file was not found. Please check the file path.")
+    exit()
+
+df['sex'] = df['sex'].apply(lambda x: 1 if x == 'male' else 0)
+df['pmi'] = df['pmi'].apply(lambda x: 1 if x == 'yes' else 0)
+
+# Keep the outcome (day30) and the 7 predictors of interest
+x = df[["age", "ste", "htn", "sex", "hyp", "hrt", "pmi","sysbp"]]
+y = df["day30"]
+
+results = '/home/natthanaphop.isa/model_instability/results/instability2/full'
+os.makedirs(results, exist_ok=True)
 
 c_bs = c_statistic_optimism(model, BS_number, x, y)
 mean_c_bs = statistics.mean(c_bs)
