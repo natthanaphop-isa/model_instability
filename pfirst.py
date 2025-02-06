@@ -49,7 +49,7 @@ from imblearn.over_sampling import SMOTENC, ADASYN, BorderlineSMOTE
 from alive_progress import alive_bar
 
 # --- Set random state for reproducibility
-RANDOM_STATE = 0000
+RANDOM_STATE = 1
 
 
 # --- Helper Functions ---
