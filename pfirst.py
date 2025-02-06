@@ -214,7 +214,7 @@ def plot_histogram_with_density(data, title="C-statistics stability"):
     plt.ylabel('Frequency')
     plt.title(title)
     plt.legend()
-    plt.savefig(results + '/classification.png')
+    plt.savefig(results + '/optimism.png')
     plt.show()
 
 
@@ -252,6 +252,7 @@ def plot_prediction_instability(prob_df, n_bootstrap, title="Prediction Instabil
     plt.title(title)
     plt.gca().set_aspect('equal', adjustable='box')
     plt.grid(False)
+    plt.savefig(results + '/prediction_stability.png')
     plt.show()
 
 
