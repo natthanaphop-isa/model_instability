@@ -517,7 +517,7 @@ plot_classification_instability(instability_df)
 
 #Small
 try:
-    df = pd.read_csv("/Users/natthanaphop_isa/Library/CloudStorage/GoogleDrive-natthanaphop.isa@gmail.com/My Drive/Academic Desk/2024Instability/model_instability/dataset/sampled_gusto_dataset(Sheet1).csv")
+    df = pd.read_csv("/home/natthanaphop.isa/model_instability/dataset/sampled_gusto_dataset(Sheet1).csv")
 except FileNotFoundError:
     print("Error: The specified data file was not found. Please check the file path.")
     exit()
@@ -531,6 +531,14 @@ y = df["day30"]
 
 results = '/home/natthanaphop.isa/model_instability/results/instability2/full'
 os.makedirs(results, exist_ok=True)
+
+model = grid_search_logistic_regression(x, y)
+# model_smnc = grid_search_logistic_regression(x_smnc, y_smnc)
+# model_bor = grid_search_logistic_regression(x_bor, y_bor)
+# model_ada = grid_search_logistic_regression(x_ada, y_ada)
+
+# Fit the models using the best parameters from grid search
+model.fit(x, y)
 
 c_bs = c_statistic_optimism(model, BS_number, x, y)
 mean_c_bs = statistics.mean(c_bs)
