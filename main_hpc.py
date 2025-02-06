@@ -197,7 +197,7 @@ param_grid = {
         'max_iter': [1000]
     }
 
-n_bootstrap = 30
+n_bootstrap = 20
 RANDOM_STATE = 1234
 
 # Step 2: FULL DATASET
