@@ -385,7 +385,7 @@ def plot_classification_instability(df, threshold = 0.100):
 """Part 3: Data import"""
 # Import data file - CHANGE PATH AS NEEDED
 try:
-    df = pd.read_csv("df_path = '/home/natthanaphop.isa/model_instability/dataset/gusto_dataset(Sheet1).csv'")
+    df = pd.read_csv("/home/natthanaphop.isa/model_instability/dataset/gusto_dataset(Sheet1).csv")
 except FileNotFoundError:
     print("Error: The specified data file was not found. Please check the file path.")
     exit()
