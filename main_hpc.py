@@ -54,7 +54,7 @@ def exploratory_data_analysis(df):
 
 # Train logistic regression with GridSearchCV
 def train_model(X, y, param_grid, cv=10):
-    logistic_model = LogisticRegression()
+    logistic_model = LogisticRegression(random_state=RANDOM_STATE)
     grid_search = GridSearchCV(estimator=logistic_model, param_grid=param_grid, cv=cv, n_jobs=-1, verbose=2)
     grid_search.fit(X, y)
     best_model = grid_search.best_estimator_
@@ -193,12 +193,12 @@ def plot_mape_instability(origin_predict, bootstrap_probs):
 param_grid = {
         'penalty': ['l2'],
         'C': [0.001, 0.01, 0.1, 1, 10, 100, 1000],
-        'class_weight':['balanced',None],
         'solver': ["newton-cholesky", "sag", "saga", "lbfgs"],
         'max_iter': [1000]
     }
 
 n_bootstrap = 30
+RANDOM_STATE = 1234
 
 # Step 2: FULL DATASET
 ## Directory and data pre-processing
