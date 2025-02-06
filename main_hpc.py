@@ -193,8 +193,7 @@ def plot_mape_instability(origin_predict, bootstrap_probs):
 param_grid = {
         'penalty': ['l2'],
         'C': [0.001, 0.01, 0.1, 1, 10, 100, 1000],
-        'solver': ["newton-cholesky", "sag", "saga", "lbfgs"],
-        'max_iter': [1000]
+        'solver': ["newton-cholesky", "sag", "saga", "lbfgs"]
     }
 
 n_bootstrap = 20
