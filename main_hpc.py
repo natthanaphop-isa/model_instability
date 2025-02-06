@@ -102,8 +102,8 @@ def plot_probability_comparison(original_probs, bootstrap_probs, lowess_2_5, low
     plt.plot(lowess_97_5[:, 0], lowess_97_5[:, 1], 'k--', lw=1, label="LOWESS 97.5th Percentile Line")
 
     # Plot settings
-    plt.xlabel("Original Model Estimated Risk")
-    plt.ylabel("Bootstrapped Models Estimated Risk")
+    plt.xlabel("Estimated Risks of the Original Model")
+    plt.ylabel("Estimated Risks of the Bootstrapped Models")
     plt.title(f"Comparison of Predicted Probabilities: Original Model vs. {n_bootstrap} Bootstrapped Models")
     plt.grid(False)
     plt.legend()
@@ -152,7 +152,7 @@ def plot_mape_instability(origin_predict, bootstrap_probs):
     pred_probs_T = bootstrap_probs.T
     absolute_errors = np.abs(pred_probs_T - origin_predict[:, np.newaxis])
     # Calculate Mean Absolute Prediction Error (MAPE)
-    mape = np.mean(absolute_errors, axis = 1) * 100
+    mape = np.mean(absolute_errors, axis = 1)
 
     y_values = mape.flatten()
     # Repeat origin_predict values for each column in bootstrap_probs
@@ -162,9 +162,9 @@ def plot_mape_instability(origin_predict, bootstrap_probs):
     plt.figure(figsize=(10, 6))
     plt.scatter(origin_predict, y_values, alpha=0.5, s=0.3)
     # plt.axhline(mean_mape, color='red', linestyle='--', label=f"Mean MAPE: {mean_mape:.2f}%")
-    plt.xlabel("Original Model: Predicted Probability")
+    plt.xlabel("Estimated Risk of the Original Model")
     plt.ylabel("MAPE (%)")
-    plt.ylim(0, 100)
+    plt.ylim(0, 1)
     plt.xlim(0, 1)
     plt.title("MAPE Instability Plot")
     plt.grid(True)
@@ -172,6 +172,7 @@ def plot_mape_instability(origin_predict, bootstrap_probs):
     plt.savefig(results + '/mape.png')
     plt.show()
     
+    mape = mape * 100
     data = {'mean_mape_%':'','mape_5_%':''}
     data['mean_mape_%'] = np.mean(mape)
     count = 0
@@ -192,11 +193,12 @@ def plot_mape_instability(origin_predict, bootstrap_probs):
 param_grid = {
         'penalty': ['l2'],
         'C': [0.001, 0.01, 0.1, 1, 10, 100, 1000],
+        'class_weight':['balanced',None],
         'solver': ["newton-cholesky", "sag", "saga", "lbfgs"],
         'max_iter': [1000]
     }
 
-n_bootstrap = 200
+n_bootstrap = 30
 
 # Step 2: FULL DATASET
 ## Directory and data pre-processing
@@ -215,7 +217,7 @@ y = df[key]
 
 ## Train original model
 original_model = train_model(X, y, param_grid)
-origin_predict= original_model.predict_proba(X)[:, 1]
+origin_predict = original_model.predict_proba(X)[:, 1]
 np.save(results + "/origin_predict.npy",  np.array(origin_predict))
 # ## Bootstrap training
 bootstrap_models, bootstrap_probs, predictions = bootstrap_training(X, df, features, key, param_grid, n_bootstrap)
