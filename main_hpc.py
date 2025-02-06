@@ -11,6 +11,8 @@ from imblearn.over_sampling import RandomOverSampler, SMOTE
 from collections import Counter
 from imblearn.under_sampling import RandomUnderSampler
 import json
+import random
+
 # Load dataset
 def load_data(file_path, features, target_column):
     df = pd.read_excel(file_path) #.iloc[:, 1:]
@@ -51,13 +53,11 @@ def exploratory_data_analysis(df):
     plt.show()
 
 # Train logistic regression with GridSearchCV
-def train_model(X, y, param_grid, cv=10):
+def train_model(X, y, param_grid):
     logistic_model = LogisticRegression()
-    grid_search = GridSearchCV(estimator=logistic_model, param_grid=param_grid, cv=cv, n_jobs=-1, verbose=2)
+    grid_search = GridSearchCV(estimator=logistic_model, param_grid=param_grid, cv=10, n_jobs=-1, verbose=2)
     grid_search.fit(X, y)
-    best_params = grid_search.best_params_
-    best_model = LogisticRegression(**best_params)
-    best_model.fit(X, y)
+    best_model = grid_search.best_estimator_
     return best_model
 
 # Perform bootstrapping
@@ -68,7 +68,8 @@ def bootstrap_training(X, df, features, target_column, param_grid, n_bootstrap):
 
     for i in range(n_bootstrap):
         # Resample dataset
-        boot_df = resample(df, replace = True, n_samples=len(df))
+        # boot_df = resample(df, replace = True, n_samples=len(df))
+        boot_df = df.sample(n=len(df), replace=True).reset_index(drop=True)
         X_boot = boot_df[features]
         y_boot = boot_df[target_column]
 
@@ -230,8 +231,8 @@ plot_calibration_with_bootstrap(origin_predict, bootstrap_models, X, y, n_bootst
 
 # Step 3: SAMPLED DATASET
 ## Directory and data pre-processing
-# df_sam = df.groupby(key).apply(lambda x: x.sample(frac=0.025, random_state=0)).reset_index(drop=True)
-df_sam = pd.read_csv('/home/natthanaphop.isa/model_instability/dataset/sampled_gusto_dataset(Sheet1).csv')
+df_sam = df.groupby(key).apply(lambda x: x.sample(frac=0.025, replace = False)).reset_index(drop=True)
+df_sam.to_csv('/home/natthanaphop.isa/model_instability/dataset/sampled_gusto_dataset(Sheet1).csv')
 results = '/home/natthanaphop.isa/model_instability/results/instability/sampled'
 os.makedirs(results, exist_ok=True)
 
