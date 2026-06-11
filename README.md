@@ -157,7 +157,8 @@ cross_sample_figures/
 
 **Natthanaphop Isaradech** $^{1,2}$, **Phichayut Phinyo** $^{2}$, **Wuttipat Kiratipaisarl** $^{1}$, **Pakpoom Wongyikul** $^{1}$, **Noraworn Jirattikanwong** $^{2}$, **Wachiranun Sirikul** $^{1,2,*}$
 
-1Department of Community Medicine, Faculty of Medicine, Chiang Mai University, Thailand, 2Department of Biomedical Informatics and Clinical Epidemiology (BioCE), Faculty of Medicine, Chiang Mai University, Thailand
+$^1$ Department of Community Medicine, Faculty of Medicine, Chiang Mai University, Thailand
+$^2$ Department of Biomedical Informatics and Clinical Epidemiology (BioCE), Faculty of Medicine, Chiang Mai University, Thailand
 
 $^*$ **Corresponding Author:** Wachiranun Sirikul
 
