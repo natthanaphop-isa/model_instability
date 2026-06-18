@@ -160,7 +160,7 @@ cross_sample_figures/
 $^1$ Department of Community Medicine, Faculty of Medicine, Chiang Mai University, Thailand
 $^2$ Department of Biomedical Informatics and Clinical Epidemiology (BioCE), Faculty of Medicine, Chiang Mai University, Thailand
 
-$^*$ **Corresponding Author:** Wachiranun Sirikul
+$^*$ **Corresponding Author:** Phichayut Phinyo
 
 ### Author Contributions
 
